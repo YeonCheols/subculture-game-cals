@@ -1,0 +1,51 @@
+{
+  "name": "gametime-subculture-calendar",
+  "version": "0.1.0",
+  "description": "몬길: STAR DIVE, 명조, 원신의 일정을 구독하는 데스크톱 캘린더",
+  "author": "WEED-SungYeonCheol",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "concurrently -k \"vite --host 127.0.0.1 --port 5173\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "electron": "electron .",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build:desktop": "npm run build && electron-builder",
+    "preview": "vite preview",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "5.0.4",
+    "vite": "6.4.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "@tabler/icons-react": "3.35.0"
+  },
+  "devDependencies": {
+    "concurrently": "9.2.1",
+    "cross-env": "10.1.0",
+    "electron": "38.4.0",
+    "electron-builder": "26.0.12",
+    "wait-on": "9.0.1"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.gametime.calendar",
+    "productName": "게임타임",
+    "files": ["dist/client/**/*", "electron/**/*", "package.json"],
+    "artifactName": "GameTime-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
