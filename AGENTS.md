@@ -14,3 +14,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Primary games: 몬길: STAR DIVE, 명조: 워더링 웨이브, 원신.
 - Primary surfaces: responsive web UI and Electron desktop shell.
 - Core task: scan active/upcoming schedules, subscribe to games, and receive desktop reminders.
+- Data sourcing: prefer official APIs; use the Netmarble official forum for 몬길 and the Naver Game `WutheringWaves` official lounge for 명조. Use compliant HTML scraping or browser rendering only for public pages, preserve source URLs and raw snapshots, surface partial-source failures, and publish only records with an explicitly verified schedule time.

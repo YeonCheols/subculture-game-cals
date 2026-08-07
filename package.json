@@ -1,11 +1,14 @@
 {
   "name": "gametime-subculture-calendar",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "몬길: STAR DIVE, 명조, 원신의 일정을 구독하는 데스크톱 캘린더",
   "author": "WEED-SungYeonCheol",
   "private": true,
   "type": "module",
   "scripts": {
+    "collect": "node scripts/collector/index.mjs",
+    "collect:dry": "node scripts/collector/index.mjs --dry-run",
+    "test:collector": "node --test tests/collector.test.mjs",
     "dev": "vite",
     "dev:electron": "concurrently -k \"vite --host 127.0.0.1 --port 5173\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "electron": "electron .",
@@ -33,11 +36,18 @@
     "appId": "com.gametime.calendar",
     "productName": "GameTime",
     "afterPack": "scripts/after-pack.cjs",
-    "files": ["dist/client/**/*", "electron/**/*", "package.json"],
+    "files": [
+      "dist/client/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "artifactName": "GameTime-${version}-${os}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
       "target": "nsis"

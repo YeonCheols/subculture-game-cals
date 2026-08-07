@@ -1,0 +1,24 @@
+{
+  "retrievedAt": "2026-08-07T06:31:06.449Z",
+  "eventCount": 3,
+  "sources": [
+    {
+      "id": "monster-forum",
+      "ok": true,
+      "candidateCount": 20,
+      "eventCount": 1
+    },
+    {
+      "id": "wuthering-naver-official",
+      "ok": true,
+      "candidateCount": 7,
+      "eventCount": 1
+    },
+    {
+      "id": "genshin-official",
+      "ok": true,
+      "candidateCount": 20,
+      "eventCount": 1
+    }
+  ]
+}

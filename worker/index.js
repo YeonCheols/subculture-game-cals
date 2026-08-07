@@ -1,5 +1,16 @@
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+    if (request.method === "GET" && url.pathname === "/api/events") {
+      url.pathname = "/api/events.json";
+      const response = await env.ASSETS.fetch(new Request(url, request));
+      return new Response(response.body, { status: response.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" } });
+    }
+    if (request.method === "GET" && url.pathname === "/api/collection-status") {
+      url.pathname = "/api/collection-status.json";
+      const response = await env.ASSETS.fetch(new Request(url, request));
+      return new Response(response.body, { status: response.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=60" } });
+    }
     const response = await env.ASSETS.fetch(request);
     const acceptsHtml = request.headers.get("accept")?.includes("text/html");
 

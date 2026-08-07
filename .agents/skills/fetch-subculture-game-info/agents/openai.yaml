@@ -1,0 +1,4 @@
+interface:
+  display_name: "서브컬처 게임 정보 수집"
+  short_description: "공식 출처에서 게임 일정과 공지를 수집·검증합니다"
+  default_prompt: "Use $fetch-subculture-game-info to collect and normalize the latest official schedules for the supported games."

@@ -1,9 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconChevronDown, IconClock, IconExternalLink, IconFileText, IconLayoutList, IconRefresh, IconSearch, IconSettings, IconSparkles, IconX } from "@tabler/icons-react";
-import { games, scheduleGroups } from "./data/schedules";
+import { games } from "./data/schedules";
 
 const typeLabels = ["전체", "업데이트", "공식방송", "이벤트", "픽업"];
 const statusLabels = ["전체 상태", "진행중", "예정"];
+const typeMap = { event: ["이벤트", "event"], update: ["업데이트", "update"], maintenance: ["점검", "update"], banner: ["픽업", "pickup"], broadcast: ["공식방송", "broadcast"], notice: ["공지", "update"] };
+const statusMap = { active: ["진행중", "live"], upcoming: ["예정", "upcoming"], ended: ["종료", "ended"], unknown: ["시간 미정", "upcoming"] };
+
+function apiUrl(name) {
+  return window.location.protocol === "file:" ? new URL(`./api/${name}.json`, window.location.href).toString() : `/api/${name}.json`;
+}
+
+function toScheduleGroups(events) {
+  const formatter = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
+  const timeFormatter = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false });
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+  const groups = new Map();
+  for (const event of events) {
+    const instant = event.startsAt;
+    if (!instant || !games.some((game) => game.id === event.gameId)) continue;
+    const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(instant));
+    const [type, typeKey] = typeMap[event.type] || typeMap.notice;
+    const [status, statusKey] = statusMap[event.status] || statusMap.unknown;
+    if (!groups.has(date)) groups.set(date, { date, label: date === today ? "오늘" : formatter.format(new Date(instant)).split(" ").at(-1), dateLabel: formatter.format(new Date(instant)), ...(date === today ? { tag: "오늘" } : {}), items: [] });
+    groups.get(date).items.push({ id: event.id, gameId: event.gameId, time: timeFormatter.format(new Date(instant)), type, typeKey, title: event.title, status, statusKey, source: "공식 공지", sourceUrl: event.sourceUrl, reminder: "1시간 전" });
+  }
+  return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
 
 function usePersistentState(key, initialValue) {
   const [value, setValue] = useState(() => {
@@ -18,7 +41,7 @@ function GameMark({ game, size = "md" }) {
   return <span className={`game-mark game-mark--${size}`} style={{ "--game": game.color, "--game-soft": game.soft }} aria-hidden="true"><IconSparkles size={size === "sm" ? 14 : 18} stroke={1.8} /></span>;
 }
 
-function Sidebar({ subscribed, onToggleGame, page, setPage, notificationCount }) {
+function Sidebar({ subscribed, onToggleGame, page, setPage, notificationCount, lastSyncedAt }) {
   return <aside className="sidebar">
     <div className="brand"><span className="brand__mark"><IconClock size={22} /></span><div><strong>게임타임</strong><small>SUBCULTURE CALENDAR</small></div></div>
     <section className="game-subscriptions">
@@ -32,7 +55,7 @@ function Sidebar({ subscribed, onToggleGame, page, setPage, notificationCount })
       <button onClick={() => setPage("sources")} className={page === "sources" ? "is-active" : ""}><IconFileText size={21} /><span>출처</span></button>
       <button onClick={() => setPage("settings")} className={page === "settings" ? "is-active" : ""}><IconSettings size={21} /><span>설정</span></button>
     </nav>
-    <div className="sidebar__bottom"><button className="manage-button" onClick={() => setPage("settings")}><IconBell size={19} /><span>구독 관리</span><span>›</span></button><div className="sync-status"><span>마지막 동기화: 방금 전 (KST)</span><IconRefresh size={14} /></div></div>
+    <div className="sidebar__bottom"><button className="manage-button" onClick={() => setPage("settings")}><IconBell size={19} /><span>구독 관리</span><span>›</span></button><div className="sync-status"><span>{lastSyncedAt ? `마지막 동기화: ${new Date(lastSyncedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "저장된 일정 표시 중"}</span><IconRefresh size={14} /></div></div>
   </aside>;
 }
 
@@ -75,11 +98,14 @@ export function App() {
   const [subscribed, setSubscribed] = usePersistentState("gametime:subscriptions", games.map((game) => game.id));
   const [notifications, setNotifications] = usePersistentState("gametime:notifications", ["ms-1", "ww-1", "gi-1"]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const allItems = useMemo(() => scheduleGroups.flatMap((group) => group.items), []);
-  const visibleGroups = useMemo(() => scheduleGroups.map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (!hideEnded || item.statusKey !== "ended") && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length), [query, gameFilter, typeFilter, statusFilter, hideEnded, subscribed]);
+  const [remoteGroups, setRemoteGroups] = useState([]);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const activeGroups = remoteGroups;
+  const allItems = useMemo(() => activeGroups.flatMap((group) => group.items), [activeGroups]);
+  const visibleGroups = useMemo(() => activeGroups.map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (!hideEnded || item.statusKey !== "ended") && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length), [activeGroups, query, gameFilter, typeFilter, statusFilter, hideEnded, subscribed]);
   const toggleGame = (id) => setSubscribed((current) => current.includes(id) ? current.filter((gameId) => gameId !== id) : [...current, id]);
   const toggleNotification = (id) => setNotifications((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]);
-  const refresh = () => { setIsRefreshing(true); window.setTimeout(() => setIsRefreshing(false), 900); };
-  useEffect(() => { const timer = window.setInterval(refresh, 15 * 60 * 1000); return () => window.clearInterval(timer); }, []);
-  return <div className="app-shell"><Sidebar subscribed={subscribed} onToggleGame={toggleGame} page={page} setPage={setPage} notificationCount={notifications.length} /><main className="workspace"><header className="toolbar"><label className="search-box"><IconSearch size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="일정, 게임, 키워드 검색" /><kbd>/</kbd></label><div className="view-switch"><button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconLayoutList size={18} />목록</button><button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={18} />캘린더</button></div><button className={`refresh-button ${isRefreshing ? "is-loading" : ""}`} onClick={refresh} title="일정 새로고침"><IconRefresh size={19} /></button></header><section className="filters"><FilterSelect value={gameFilter} options={["모든 게임", ...games.map((game) => game.shortName)]} onChange={setGameFilter} /><FilterSelect value={typeFilter} options={typeLabels} onChange={setTypeFilter} /><FilterSelect value={statusFilter} options={statusLabels} onChange={setStatusFilter} /><label className="checkbox"><input type="checkbox" checked={hideEnded} onChange={(event) => setHideEnded(event.target.checked)} /><span />종료된 일정 숨기기</label><IconAdjustmentsHorizontal className="filter-icon" size={19} /></section><section className="content-area">{page === "calendar" ? <MiniCalendar groups={visibleGroups} /> : <Timeline groups={visibleGroups} notifications={notifications} toggleNotification={toggleNotification} />}</section></main><NotificationPanel allItems={allItems} notifications={notifications} toggleNotification={toggleNotification} /></div>;
+  const refresh = async () => { setIsRefreshing(true); try { const [eventsResponse, statusResponse] = await Promise.all([fetch(apiUrl("events"), { cache: "no-store" }), fetch(apiUrl("collection-status"), { cache: "no-store" })]); if (!eventsResponse.ok) throw new Error(`events ${eventsResponse.status}`); const events = await eventsResponse.json(); if (!Array.isArray(events)) throw new Error("events response is not an array"); setRemoteGroups(toScheduleGroups(events)); if (statusResponse.ok) setLastSyncedAt((await statusResponse.json()).retrievedAt); } catch (error) { setRemoteGroups([]); console.error("공식 일정 API를 불러오지 못했습니다.", error); } finally { setIsRefreshing(false); } };
+  useEffect(() => { refresh(); const timer = window.setInterval(refresh, 15 * 60 * 1000); return () => window.clearInterval(timer); }, []);
+  return <div className="app-shell"><Sidebar subscribed={subscribed} onToggleGame={toggleGame} page={page} setPage={setPage} notificationCount={notifications.length} lastSyncedAt={lastSyncedAt} /><main className="workspace"><header className="toolbar"><label className="search-box"><IconSearch size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="일정, 게임, 키워드 검색" /><kbd>/</kbd></label><div className="view-switch"><button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconLayoutList size={18} />목록</button><button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={18} />캘린더</button></div><button className={`refresh-button ${isRefreshing ? "is-loading" : ""}`} onClick={refresh} title="일정 새로고침"><IconRefresh size={19} /></button></header><section className="filters"><FilterSelect value={gameFilter} options={["모든 게임", ...games.map((game) => game.shortName)]} onChange={setGameFilter} /><FilterSelect value={typeFilter} options={typeLabels} onChange={setTypeFilter} /><FilterSelect value={statusFilter} options={statusLabels} onChange={setStatusFilter} /><label className="checkbox"><input type="checkbox" checked={hideEnded} onChange={(event) => setHideEnded(event.target.checked)} /><span />종료된 일정 숨기기</label><IconAdjustmentsHorizontal className="filter-icon" size={19} /></section><section className="content-area">{page === "calendar" ? <MiniCalendar groups={visibleGroups} /> : <Timeline groups={visibleGroups} notifications={notifications} toggleNotification={toggleNotification} />}</section></main><NotificationPanel allItems={allItems} notifications={notifications} toggleNotification={toggleNotification} /></div>;
 }

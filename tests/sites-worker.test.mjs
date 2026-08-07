@@ -61,6 +61,16 @@ test("does not turn missing API or write requests into the app shell", async () 
   }
 });
 
+test("maps the event API to the generated JSON asset", async () => {
+  const calls = [];
+  const response = await worker.fetch(new Request("https://example.test/api/events"), {
+    ASSETS: { fetch: async (request) => { calls.push(new URL(request.url).pathname); return Response.json([{ id: "event-1" }]); } },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /application\/json/);
+  assert.deepEqual(calls, ["/api/events.json"]);
+});
+
 test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
   await access(new URL("../dist/server/index.js", import.meta.url));
