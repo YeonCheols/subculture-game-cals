@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import electronPath from "electron";
 import path from "node:path";
-import { USER_AGENT, collectText, decodeHtml, deduplicate, extractLinks, extractNetmarbleForumLinks, extractPage, extractSteamAnnouncementUrl, extractSteamForumLinks, filterEventsForKstDate, normalize } from "./lib.mjs";
+import { USER_AGENT, collectText, decodeHtml, deduplicate, extractLinks, extractNetmarbleForumLinks, extractPage, extractSteamAnnouncementUrl, extractSteamForumLinks, mergeEventHistory, normalize } from "./lib.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -102,12 +102,18 @@ async function collectSource(source) {
 }
 
 const results = await Promise.allSettled(sources.map(collectSource));
-const events = filterEventsForKstDate(deduplicate(results.flatMap((result) => result.status === "fulfilled" ? result.value.events : []).filter((event) => event.startsAt)));
+const collectedEvents = deduplicate(results.flatMap((result) => result.status === "fulfilled" ? result.value.events : []).filter((event) => event.startsAt));
+let existingEvents = [];
+try {
+  existingEvents = JSON.parse(await readFile(path.join(root, "public/api/events.json"), "utf8"));
+} catch {}
+const events = mergeEventHistory(existingEvents, collectedEvents);
 const status = {
   retrievedAt,
   eventCount: events.length,
+  collectedEventCount: collectedEvents.length,
   sources: results.map((result, index) => result.status === "fulfilled"
-    ? { id: result.value.source.id, ok: true, candidateCount: result.value.candidateCount, eventCount: events.filter((event) => event.gameId === result.value.source.gameId).length }
+    ? { id: result.value.source.id, ok: true, candidateCount: result.value.candidateCount, collectedEventCount: result.value.events.filter((event) => event.startsAt).length, storedEventCount: events.filter((event) => event.gameId === result.value.source.gameId).length }
     : { id: sources[index].id, ok: false, error: result.reason?.message || String(result.reason) }),
 };
 
@@ -130,5 +136,5 @@ async function atomicJson(name, value) {
 }
 await atomicJson("events.json", events);
 await atomicJson("collection-status.json", status);
-console.log(`Collected ${events.length} events from ${status.sources.filter((source) => source.ok).length}/${sources.length} sources.`);
+console.log(`Collected ${collectedEvents.length} events and retained ${events.length} total from ${status.sources.filter((source) => source.ok).length}/${sources.length} sources.`);
 if (status.sources.some((source) => !source.ok)) process.exitCode = 1;

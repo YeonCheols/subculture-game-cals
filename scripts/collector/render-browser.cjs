@@ -5,6 +5,7 @@ const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) process.exit(2);
 
 app.commandLine.appendSwitch("disable-gpu");
+if (process.env.CI) app.commandLine.appendSwitch("no-sandbox");
 app.whenReady().then(async () => {
   const urls = JSON.parse(readFileSync(inputPath, "utf8"));
   const window = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false } });

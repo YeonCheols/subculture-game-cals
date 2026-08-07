@@ -3,7 +3,7 @@ import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, Icon
 import { games } from "./data/schedules";
 
 const typeLabels = ["전체", "업데이트", "공식방송", "이벤트", "픽업"];
-const statusLabels = ["전체 상태", "진행중", "예정"];
+const statusLabels = ["전체 상태", "진행중", "예정", "종료"];
 const typeMap = { event: ["이벤트", "event"], update: ["업데이트", "update"], maintenance: ["점검", "update"], banner: ["픽업", "pickup"], broadcast: ["공식방송", "broadcast"], notice: ["공지", "update"] };
 const statusMap = { active: ["진행중", "live"], upcoming: ["예정", "upcoming"], ended: ["종료", "ended"], unknown: ["시간 미정", "upcoming"] };
 
@@ -94,7 +94,7 @@ function NotificationPanel({ allItems, notifications, toggleNotification }) {
 
 export function App() {
   const [page, setPage] = useState("schedule");
-  const [query, setQuery] = useState(""); const [gameFilter, setGameFilter] = useState("모든 게임"); const [typeFilter, setTypeFilter] = useState("전체"); const [statusFilter, setStatusFilter] = useState("전체 상태"); const [hideEnded, setHideEnded] = useState(true);
+  const [query, setQuery] = useState(""); const [gameFilter, setGameFilter] = useState("모든 게임"); const [typeFilter, setTypeFilter] = useState("전체"); const [statusFilter, setStatusFilter] = useState("전체 상태"); const [hideEnded, setHideEnded] = useState(false);
   const [subscribed, setSubscribed] = usePersistentState("gametime:subscriptions", games.map((game) => game.id));
   const [notifications, setNotifications] = usePersistentState("gametime:notifications", ["ms-1", "ww-1", "gi-1"]);
   const [isRefreshing, setIsRefreshing] = useState(false);

@@ -106,9 +106,6 @@ export function extractTime(text, referenceYear = null) {
 export function normalize(source, page, retrievedAt, now = Date.now()) {
   const referenceYear = page.published && !Number.isNaN(Date.parse(page.published)) ? new Date(page.published).getFullYear() : null;
   const timing = extractTime(page.text, referenceYear);
-  const start = timing.startsAt && Date.parse(timing.startsAt);
-  const end = timing.endsAt && Date.parse(timing.endsAt);
-  const status = start && start > now ? "upcoming" : end && end < now ? "ended" : start && end ? "active" : "unknown";
   const digest = createHash("sha256").update(page.canonical).digest("hex").slice(0, 14);
   return {
     id: `${source.gameId}-${digest}`,
@@ -122,7 +119,7 @@ export function normalize(source, page, retrievedAt, now = Date.now()) {
     startsAt: timing.startsAt,
     endsAt: timing.endsAt,
     sourceTimeText: timing.sourceTimeText,
-    status,
+    status: getEventStatus(timing, now),
     confidence: timing.startsAt ? "confirmed" : "probable",
     retrievedAt,
     version: page.title.match(/(?:버전|Version|v)\s*([0-9]+(?:\.[0-9]+)+)/i)?.[1] || null,
@@ -136,15 +133,18 @@ export function deduplicate(events) {
   return [...byUrl.values()].sort((a, b) => (a.startsAt || a.publishedAt || "9999").localeCompare(b.startsAt || b.publishedAt || "9999"));
 }
 
-export function filterEventsForKstDate(events, date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-  const dayStart = Date.parse(`${parts}T00:00:00+09:00`);
-  const dayEnd = Date.parse(`${parts}T23:59:59.999+09:00`);
-  return events.filter((event) => {
-    const start = Date.parse(event.startsAt);
-    if (Number.isNaN(start)) return false;
-    if (!event.endsAt) return start >= dayStart && start <= dayEnd;
-    const end = Date.parse(event.endsAt);
-    return !Number.isNaN(end) && start <= dayEnd && end >= dayStart;
-  });
+export function getEventStatus(event, now = Date.now()) {
+  const start = Date.parse(event.startsAt);
+  if (Number.isNaN(start)) return "unknown";
+  if (start > now) return "upcoming";
+  if (!event.endsAt) return "ended";
+  const end = Date.parse(event.endsAt);
+  if (Number.isNaN(end)) return "unknown";
+  return end < now ? "ended" : "active";
+}
+
+export function mergeEventHistory(existingEvents, collectedEvents, now = Date.now()) {
+  return deduplicate([...existingEvents, ...collectedEvents])
+    .filter((event) => event.startsAt)
+    .map((event) => ({ ...event, status: getEventStatus(event, now) }));
 }

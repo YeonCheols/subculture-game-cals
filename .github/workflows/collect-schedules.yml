@@ -1,0 +1,35 @@
+name: Collect official game schedules
+
+on:
+  schedule:
+    - cron: "10 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Collect at 00:10 KST
+        run: xvfb-run -a npm run collect
+      - run: npm run test:collector
+      - run: npm run build
+      - run: npm run test:sites
+      - name: Commit refreshed schedules
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/api/events.json public/api/collection-status.json
+          git diff --cached --quiet || git commit -m "chore: refresh official game schedules"
+          git push origin HEAD:develop

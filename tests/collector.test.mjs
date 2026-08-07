@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classify, collectText, decodeHtml, deduplicate, extractLinks, extractNetmarbleForumLinks, extractPage, extractSteamAnnouncementUrl, extractSteamForumLinks, extractTime, filterEventsForKstDate, normalize } from "../scripts/collector/lib.mjs";
+import { classify, collectText, decodeHtml, deduplicate, extractLinks, extractNetmarbleForumLinks, extractPage, extractSteamAnnouncementUrl, extractSteamForumLinks, extractTime, getEventStatus, mergeEventHistory, normalize } from "../scripts/collector/lib.mjs";
 
 const source = { gameId: "genshin", locale: "ko-KR", url: "https://example.com/news", allowedHosts: ["example.com"], detailPattern: "/detail/", keywords: ["이벤트"] };
 
@@ -46,12 +46,18 @@ test("extracts verified Naver Lounge text and a single broadcast time", () => {
   assert.equal(decodeHtml("&#x1f4e3; 공식 방송"), "📣 공식 방송");
 });
 
-test("keeps only events active or starting on the KST target date", () => {
-  const events = [
-    { id: "active", startsAt: "2026-08-01T10:00:00+09:00", endsAt: "2026-08-08T23:59:00+09:00" },
-    { id: "today", startsAt: "2026-08-07T20:00:00+09:00", endsAt: null },
-    { id: "old-single", startsAt: "2026-08-06T20:00:00+09:00", endsAt: null },
-    { id: "future", startsAt: "2026-08-08T10:00:00+09:00", endsAt: null },
+test("retains ended, active, and upcoming history while replacing recollected URLs", () => {
+  const now = Date.parse("2026-08-07T03:00:00Z");
+  const existing = [
+    { id: "ended", sourceUrl: "https://example.com/ended", title: "기존", startsAt: "2026-08-06T20:00:00+09:00", endsAt: null },
+    { id: "active", sourceUrl: "https://example.com/active", startsAt: "2026-08-01T10:00:00+09:00", endsAt: "2026-08-08T23:59:00+09:00" },
   ];
-  assert.deepEqual(filterEventsForKstDate(events, new Date("2026-08-07T03:00:00Z")).map((event) => event.id), ["active", "today"]);
+  const collected = [
+    { ...existing[0], title: "갱신됨" },
+    { id: "future", sourceUrl: "https://example.com/future", startsAt: "2026-08-08T10:00:00+09:00", endsAt: null },
+  ];
+  const merged = mergeEventHistory(existing, collected, now);
+  assert.deepEqual(merged.map(({ id, status }) => [id, status]), [["active", "active"], ["ended", "ended"], ["future", "upcoming"]]);
+  assert.equal(merged.find((event) => event.id === "ended").title, "갱신됨");
+  assert.equal(getEventStatus({ startsAt: "2026-08-06T20:00:00+09:00", endsAt: null }, now), "ended");
 });
