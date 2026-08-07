@@ -15,6 +15,13 @@ export default defineConfig({
     warmup: {
       clientFiles: ["./src/main.jsx"],
     },
+    proxy: {
+      "/remote-api": {
+        target: "https://subculture-schdule-api.vercel.app",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/remote-api/, "/api/v1"),
+      },
+    },
   },
   plugins: [react()],
 });

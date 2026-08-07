@@ -71,6 +71,17 @@ test("maps the event API to the generated JSON asset", async () => {
   assert.deepEqual(calls, ["/api/events.json"]);
 });
 
+test("proxies dated remote event queries without losing the date", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let target;
+  globalThis.fetch = async (input) => { target = String(input); return Response.json([{ id: "remote-event" }]); };
+  context.after(() => { globalThis.fetch = originalFetch; });
+  const response = await worker.fetch(new Request("https://example.test/remote-api/events?date=2026-08-07"), {});
+  assert.equal(response.status, 200);
+  assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v1/events?date=2026-08-07");
+  assert.deepEqual(await response.json(), [{ id: "remote-event" }]);
+});
+
 test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
   await access(new URL("../dist/server/index.js", import.meta.url));

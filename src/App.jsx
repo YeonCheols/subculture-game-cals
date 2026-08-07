@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconChevronDown, IconClock, IconExternalLink, IconFileText, IconLayoutList, IconRefresh, IconSearch, IconSettings, IconX } from "@tabler/icons-react";
 import { games } from "./data/schedules";
 import "./event-detail.css";
@@ -12,6 +12,21 @@ const statusMap = { active: ["진행중", "live"], upcoming: ["예정", "upcomin
 
 function apiUrl(name) {
   return window.location.protocol === "file:" ? new URL(`./api/${name}.json`, window.location.href).toString() : `/api/${name}.json`;
+}
+
+async function browserScheduleData(date = "") {
+  const query = date ? `?date=${encodeURIComponent(date)}` : "";
+  try {
+    const [eventsResponse, statusResponse] = await Promise.all([fetch(`/remote-api/events${query}`, { cache: "no-store" }), fetch("/remote-api/collection-status", { cache: "no-store" })]);
+    if (!eventsResponse.ok) throw new Error(`events ${eventsResponse.status}`);
+    return { events: await eventsResponse.json(), status: statusResponse.ok ? await statusResponse.json() : null, source: "remote" };
+  } catch (remoteError) {
+    const [eventsResponse, statusResponse] = await Promise.all([fetch(apiUrl("events"), { cache: "no-store" }), fetch(apiUrl("collection-status"), { cache: "no-store" })]);
+    if (!eventsResponse.ok) throw remoteError;
+    const events = await eventsResponse.json();
+    const filteredEvents = date ? events.filter((event) => { const start = Date.parse(event.startsAt); const end = event.endsAt ? Date.parse(event.endsAt) : start; const dayStart = Date.parse(`${date}T00:00:00+09:00`); const dayEnd = Date.parse(`${date}T23:59:59.999+09:00`); return !Number.isNaN(start) && start <= dayEnd && end >= dayStart; }) : events;
+    return { events: filteredEvents, status: statusResponse.ok ? await statusResponse.json() : null, source: "bundled", warning: remoteError.message };
+  }
 }
 
 function toScheduleGroups(events) {
@@ -140,10 +155,10 @@ export function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const activeGroups = remoteGroups;
   const allItems = useMemo(() => activeGroups.flatMap((group) => group.items), [activeGroups]);
-  const visibleGroups = useMemo(() => activeGroups.filter((group) => !dateFilter || group.date === dateFilter).map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (!hideEnded || item.statusKey !== "ended") && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length), [activeGroups, query, gameFilter, dateFilter, typeFilter, statusFilter, hideEnded, subscribed]);
+  const visibleGroups = useMemo(() => activeGroups.map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (!hideEnded || item.statusKey !== "ended") && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length), [activeGroups, query, gameFilter, typeFilter, statusFilter, hideEnded, subscribed]);
   const toggleGame = (id) => setSubscribed((current) => current.includes(id) ? current.filter((gameId) => gameId !== id) : [...current, id]);
   const toggleNotification = (id) => setNotifications((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]);
-  const refresh = async () => { setIsRefreshing(true); try { const [eventsResponse, statusResponse] = await Promise.all([fetch(apiUrl("events"), { cache: "no-store" }), fetch(apiUrl("collection-status"), { cache: "no-store" })]); if (!eventsResponse.ok) throw new Error(`events ${eventsResponse.status}`); const events = await eventsResponse.json(); if (!Array.isArray(events)) throw new Error("events response is not an array"); setRemoteGroups(toScheduleGroups(events)); if (statusResponse.ok) setLastSyncedAt((await statusResponse.json()).retrievedAt); } catch (error) { setRemoteGroups([]); console.error("공식 일정 API를 불러오지 못했습니다.", error); } finally { setIsRefreshing(false); } };
-  useEffect(() => { refresh(); const timer = window.setInterval(refresh, 15 * 60 * 1000); return () => window.clearInterval(timer); }, []);
+  const refresh = useCallback(async () => { setIsRefreshing(true); try { const payload = window.electronAPI?.fetchScheduleData ? await window.electronAPI.fetchScheduleData(dateFilter) : await browserScheduleData(dateFilter); if (!Array.isArray(payload.events)) throw new Error("events response is not an array"); setRemoteGroups(toScheduleGroups(payload.events)); if (payload.status?.retrievedAt) setLastSyncedAt(payload.status.retrievedAt); } catch (error) { console.error("공식 일정 API를 불러오지 못했습니다.", error); } finally { setIsRefreshing(false); } }, [dateFilter]);
+  useEffect(() => { refresh(); const timer = window.setInterval(refresh, 5 * 60 * 1000); const removeIpcListener = window.electronAPI?.onRefreshSchedules?.(refresh); const refreshWhenVisible = () => { if (document.visibilityState === "visible") refresh(); }; document.addEventListener("visibilitychange", refreshWhenVisible); return () => { window.clearInterval(timer); removeIpcListener?.(); document.removeEventListener("visibilitychange", refreshWhenVisible); }; }, [refresh]);
   return <div className="app-shell"><Sidebar subscribed={subscribed} onToggleGame={toggleGame} page={page} setPage={setPage} notificationCount={notifications.length} lastSyncedAt={lastSyncedAt} /><main className="workspace"><header className="toolbar"><label className="search-box"><IconSearch size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="일정, 게임, 키워드 검색" /><kbd>/</kbd></label><div className="view-switch"><button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconLayoutList size={18} />목록</button><button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={18} />캘린더</button></div><button className={`refresh-button ${isRefreshing ? "is-loading" : ""}`} onClick={refresh} title="일정 새로고침"><IconRefresh size={19} /></button></header><section className="filters"><FilterSelect value={gameFilter} options={["모든 게임", ...games.map((game) => game.shortName)]} onChange={setGameFilter} /><label className={`date-filter ${dateFilter ? "has-value" : ""}`}><IconCalendar size={16} /><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="일정 날짜 검색" />{dateFilter && <button type="button" onClick={() => setDateFilter("")} aria-label="날짜 필터 초기화"><IconX size={14} /></button>}</label><FilterSelect value={typeFilter} options={typeLabels} onChange={setTypeFilter} /><FilterSelect value={statusFilter} options={statusLabels} onChange={setStatusFilter} /><label className="checkbox"><input type="checkbox" checked={hideEnded} onChange={(event) => setHideEnded(event.target.checked)} /><span />종료된 일정 숨기기</label><IconAdjustmentsHorizontal className="filter-icon" size={19} /></section><section className="content-area">{page === "calendar" ? <MiniCalendar groups={visibleGroups} onOpen={setSelectedItem} focusDate={dateFilter} /> : <Timeline groups={visibleGroups} notifications={notifications} toggleNotification={toggleNotification} onOpen={setSelectedItem} />}</section></main><NotificationPanel allItems={allItems} notifications={notifications} toggleNotification={toggleNotification} /><EventDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} notifications={notifications} toggleNotification={toggleNotification} /></div>;
 }
