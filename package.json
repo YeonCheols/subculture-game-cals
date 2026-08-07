@@ -1,6 +1,6 @@
 {
   "name": "gametime-subculture-calendar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "몬길: STAR DIVE, 명조, 원신의 일정을 구독하는 데스크톱 캘린더",
   "author": "WEED-SungYeonCheol",
   "private": true,
@@ -32,6 +32,7 @@
   "build": {
     "appId": "com.gametime.calendar",
     "productName": "게임타임",
+    "afterPack": "scripts/after-pack.cjs",
     "files": ["dist/client/**/*", "electron/**/*", "package.json"],
     "artifactName": "GameTime-${version}-${os}-${arch}.${ext}",
     "mac": {
