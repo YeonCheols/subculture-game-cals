@@ -1,0 +1,2 @@
+.game-mark{overflow:hidden;background:#0b192a;box-shadow:0 0 0 1px color-mix(in srgb,var(--game) 28%,transparent),0 3px 12px rgba(0,0,0,.22)}
+.game-mark img{width:100%;height:100%;display:block;object-fit:cover}

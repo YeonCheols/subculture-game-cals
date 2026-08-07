@@ -61,6 +61,27 @@ test("does not turn missing API or write requests into the app shell", async () 
   }
 });
 
+test("maps the event API to the generated JSON asset", async () => {
+  const calls = [];
+  const response = await worker.fetch(new Request("https://example.test/api/events"), {
+    ASSETS: { fetch: async (request) => { calls.push(new URL(request.url).pathname); return Response.json([{ id: "event-1" }]); } },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /application\/json/);
+  assert.deepEqual(calls, ["/api/events.json"]);
+});
+
+test("proxies dated remote event queries without losing the date", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let target;
+  globalThis.fetch = async (input) => { target = String(input); return Response.json([{ id: "remote-event" }]); };
+  context.after(() => { globalThis.fetch = originalFetch; });
+  const response = await worker.fetch(new Request("https://example.test/remote-api/events?date=2026-08-07"), {});
+  assert.equal(response.status, 200);
+  assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v1/events?date=2026-08-07");
+  assert.deepEqual(await response.json(), [{ id: "remote-event" }]);
+});
+
 test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
   await access(new URL("../dist/server/index.js", import.meta.url));
