@@ -4,3 +4,7 @@
   Pop $0
   Sleep 1000
 !macroend
+
+!macro customInit
+  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\GameTime Calendar"
+!macroend

@@ -37,9 +37,9 @@ jobs:
           Start-Sleep -Seconds 3
           if ($runningApp.HasExited) { throw "Upgrade fixture did not remain running." }
 
-          $installDir = Join-Path $env:RUNNER_TEMP "GameTime-install-check"
+          $installDir = Join-Path $env:LOCALAPPDATA "Programs\GameTime Calendar"
           try {
-            $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+            $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
             if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode)." }
             if (Get-Process -Id $runningApp.Id -ErrorAction SilentlyContinue) {
               throw "Installer did not terminate the running GameTime process."
