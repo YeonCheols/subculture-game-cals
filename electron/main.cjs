@@ -53,7 +53,12 @@ function createWindow() {
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) mainWindow.loadURL(devUrl); else mainWindow.loadFile(path.join(__dirname, "../dist/client/index.html"));
   mainWindow.webContents.once("did-finish-load", async () => { if (process.env.CAPTURE_PATH) { await new Promise((resolve) => setTimeout(resolve, 1200)); const image = await mainWindow.webContents.capturePage(); require("fs").writeFileSync(process.env.CAPTURE_PATH, image.toPNG()); app.isQuitting = true; app.quit(); } });
-  mainWindow.on("close", (event) => { if (!app.isQuitting) { event.preventDefault(); mainWindow.hide(); } });
+  mainWindow.on("close", (event) => {
+    if (process.platform === "darwin" && !app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 }
 
 function createTray() {

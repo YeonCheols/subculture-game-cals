@@ -3,6 +3,10 @@
   "outputDirectory": "dist/client",
   "framework": "vite",
   "rewrites": [
+    {
+      "source": "/remote-api/:path*",
+      "destination": "https://subculture-schdule-api.vercel.app/api/v1/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

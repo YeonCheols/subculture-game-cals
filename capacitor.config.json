@@ -1,0 +1,14 @@
+{
+  "appId": "com.gametime.calendar",
+  "appName": "GameTime",
+  "webDir": "dist/client",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#35B6FF",
+      "presentationOptions": ["badge", "sound", "banner", "list"]
+    }
+  }
+}

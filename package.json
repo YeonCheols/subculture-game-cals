@@ -15,17 +15,32 @@
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "build:desktop": "npm run build && electron-builder",
     "build:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "mobile:sync": "npm run build && cap sync",
+    "mobile:android": "npm run mobile:sync && cap open android",
+    "mobile:ios": "npm run mobile:sync && cap open ios",
+    "build:android": "npm run mobile:sync && cd android && ./gradlew bundleRelease",
+    "build:ios": "npm run mobile:sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build",
     "preview": "vite preview",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "test:platform": "node --test tests/platform-core.test.mjs",
+    "test:electron-notification": "electron scripts/test-electron-notification.cjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@tabler/icons-react": "3.35.0",
     "@vitejs/plugin-react": "5.0.4",
-    "vite": "6.4.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "@tabler/icons-react": "3.35.0"
+    "vite": "6.4.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "concurrently": "9.2.1",
     "cross-env": "10.1.0",
     "electron": "43.2.0",

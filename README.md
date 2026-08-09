@@ -1,6 +1,6 @@
 # 게임타임
 
-몬길: STAR DIVE, 명조: 워더링 웨이브, 원신의 업데이트·공식방송·이벤트·픽업 일정을 한곳에서 확인하고 알림을 설정하는 웹/Electron 앱입니다.
+몬길: STAR DIVE, 명조: 워더링 웨이브, 원신의 업데이트·공식방송·이벤트·픽업 일정을 한곳에서 확인하고 알림을 설정하는 웹/Electron/Android/iOS 앱입니다.
 
 프로젝트 아키텍처, 일정 데이터 계약, 공식 수집 정책, 런타임과 배포 기준은 AI 에이전트와 프로젝트 스킬이 함께 사용하는 [`docs/PROJECT_REFERENCE.md`](docs/PROJECT_REFERENCE.md)를 기준으로 합니다. 에이전트 행동 규칙과 확정된 제품 결정은 [`AGENTS.md`](AGENTS.md)에 있습니다.
 
@@ -16,6 +16,16 @@ Electron 개발 모드:
 ```bash
 npm run dev:electron
 ```
+
+Android/iOS 네이티브 프로젝트 동기화 및 IDE 실행:
+
+```bash
+npm run mobile:sync
+npm run mobile:android
+npm run mobile:ios
+```
+
+Android/iOS 앱은 Capacitor 셸에서 동일한 React 클라이언트를 사용합니다. 모바일에서 선택한 미래 일정은 시작 60분 전 네이티브 로컬 알림으로 예약되며 앱이 종료되어도 운영체제가 전달합니다. 앱 종료 중 서버 일정이 변경된 경우에는 다음 실행 또는 포그라운드 전환 때 예약을 다시 맞춥니다.
 
 macOS/Windows 데스크톱 패키징:
 
@@ -37,10 +47,10 @@ npm run build:win
 
 - 날짜별 일정 타임라인 및 월간 캘린더
 - 게임, 일정 유형, 상태 필터와 키워드 검색
-- 게임 구독 및 개별 일정 알림 상태의 로컬 저장
+- 게임 구독 및 개별 일정 알림 상태의 플랫폼별 로컬 저장
 - 공식 출처 링크 연결
 - 5분 간격 자동 새로고침과 수동 새로고침 상태
-- Electron 네이티브 알림과 외부 링크 보안 브리지
+- Electron 알림과 Android/iOS 네이티브 예약 알림
 - 데스크톱/모바일 반응형 레이아웃
 
 ## 데이터 안내

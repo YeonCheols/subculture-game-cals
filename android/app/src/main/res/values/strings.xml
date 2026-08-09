@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GameTime</string>
+    <string name="title_activity_main">GameTime</string>
+    <string name="package_name">com.gametime.calendar</string>
+    <string name="custom_url_scheme">com.gametime.calendar</string>
+</resources>
