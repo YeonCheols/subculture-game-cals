@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+Read `docs/PROJECT_REFERENCE.md` as the canonical technical reference before changing architecture, schedule ingestion, runtime data access, deployment, or release behavior. Project-local skills should link to that document instead of duplicating shared project facts.
+
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 
 Before making substantial visual changes, use the Product Design plugin's `get-context` skill when the visual source is unclear or no longer matches the current goal. When the user gives durable prototype-specific design feedback, preferences, or decisions, record them in `AGENTS.md`.
@@ -21,3 +23,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Schedule filtering: provide an exact-date search filter that applies consistently to both timeline and calendar surfaces and can be cleared in one action.
 - Runtime data API: Electron must read schedules from `https://subculture-schdule-api.vercel.app/api/v1/events` and collection state from `/api/v1/collection-status` through the main process. Cache the last valid response and fall back to bundled JSON only when both the remote API and cache are unavailable.
 - Runtime date filtering: selecting a date must refetch `GET /api/v1/events?date=YYYY-MM-DD`; clearing it must refetch the unfiltered events endpoint. Treat the API response as authoritative because it may include schedules whose ranges overlap the selected date.
+- Default schedule visibility: on initial entry, show only schedules whose KST start date is today or later. Enabling `전체보기` must include the full past and future history; an explicit exact-date search must still show the API-authoritative results for that date.

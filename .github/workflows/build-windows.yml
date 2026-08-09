@@ -1,0 +1,57 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:win
+
+      - name: Verify installer payload on Windows x64
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter "GameTime-*-win-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Windows x64 installer was not created." }
+
+          $installDir = Join-Path $env:RUNNER_TEMP "GameTime-install-check"
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode)." }
+
+          $appExecutable = Join-Path $installDir "GameTime.exe"
+          if (-not (Test-Path $appExecutable)) { throw "Installed GameTime.exe was not found." }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameTime-windows-x64
+          path: |
+            dist/GameTime-*-win-x64.exe
+            dist/GameTime-*-win-x64.exe.blockmap
+          if-no-files-found: error
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter "GameTime-*-win-x64.exe" | Select-Object -First 1
+          $assets = @($installer.FullName)
+          $blockmap = Get-Item "$($installer.FullName).blockmap" -ErrorAction SilentlyContinue
+          if ($blockmap) { $assets += $blockmap.FullName }
+          gh release create "${{ github.ref_name }}" $assets --generate-notes --title "GameTime ${{ github.ref_name }}"
