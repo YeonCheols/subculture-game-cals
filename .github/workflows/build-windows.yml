@@ -33,9 +33,18 @@ jobs:
           $installer = Get-ChildItem -Path dist -Filter "GameTime-*-win-x64.exe" | Select-Object -First 1
           if (-not $installer) { throw "Windows x64 installer was not created." }
 
+          $runningApp = Start-Process -FilePath "dist\win-unpacked\GameTime.exe" -PassThru
+          Start-Sleep -Seconds 3
+          if ($runningApp.HasExited) { throw "Upgrade fixture did not remain running." }
+
           $installDir = Join-Path $env:RUNNER_TEMP "GameTime-install-check"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode)." }
+          try {
+            $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode)." }
+            Wait-Process -Id $runningApp.Id -Timeout 10 -ErrorAction Stop
+          } finally {
+            Stop-Process -Id $runningApp.Id -Force -ErrorAction SilentlyContinue
+          }
 
           $appExecutable = Join-Path $installDir "GameTime.exe"
           if (-not (Test-Path $appExecutable)) { throw "Installed GameTime.exe was not found." }
