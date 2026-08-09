@@ -41,7 +41,9 @@ jobs:
           try {
             $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
             if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode)." }
-            Wait-Process -Id $runningApp.Id -Timeout 10 -ErrorAction Stop
+            if (Get-Process -Id $runningApp.Id -ErrorAction SilentlyContinue) {
+              throw "Installer did not terminate the running GameTime process."
+            }
           } finally {
             Stop-Process -Id $runningApp.Id -Force -ErrorAction SilentlyContinue
           }
