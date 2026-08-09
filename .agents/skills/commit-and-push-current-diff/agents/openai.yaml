@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit and Push Current Diff"
+  short_description: "Review, commit, and push the current repository diff"
+  default_prompt: "Use $commit-and-push-current-diff to review, commit, and push the current repository changes."
