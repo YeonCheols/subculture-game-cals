@@ -84,8 +84,14 @@ jobs:
       - name: Rename mobile release assets
         shell: bash
         run: |
-          mv release-assets/app-release.apk "release-assets/GameTime-${{ github.ref_name }}-android.apk"
-          mv release-assets/app-release.aab "release-assets/GameTime-${{ github.ref_name }}-android.aab"
+          apk_path=$(find release-assets -type f -name app-release.apk -print -quit)
+          aab_path=$(find release-assets -type f -name app-release.aab -print -quit)
+          if [ -z "$apk_path" ] || [ -z "$aab_path" ]; then
+            echo "Android release assets were not found." >&2
+            exit 1
+          fi
+          mv "$apk_path" "release-assets/GameTime-${{ github.ref_name }}-android.apk"
+          mv "$aab_path" "release-assets/GameTime-${{ github.ref_name }}-android.aab"
 
       - name: Publish mobile GitHub release assets
         shell: bash
