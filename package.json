@@ -19,7 +19,7 @@
     "mobile:android": "npm run mobile:sync && cap open android",
     "mobile:ios": "npm run mobile:sync && cap open ios",
     "build:android": "npm run mobile:sync && cd android && ./gradlew bundleRelease",
-    "build:ios": "npm run mobile:sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build",
+    "build:ios": "npm run mobile:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",
     "test:platform": "node --test tests/platform-core.test.mjs",
