@@ -9,6 +9,16 @@ function isValidEvents(events) {
   return Array.isArray(events) && events.every((event) => event && typeof event.id === "string" && typeof event.gameId === "string" && typeof event.title === "string" && typeof event.sourceUrl === "string" && event.sourceUrl.startsWith("https://"));
 }
 
+function isValidRedemptionCodes(codes) {
+  return Array.isArray(codes) && codes.every((item) => item && typeof item.id === "string" && typeof item.gameId === "string" && typeof item.code === "string");
+}
+
+function redemptionCodesExpiringToday(codes) {
+  const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" });
+  const today = formatter.format(new Date());
+  return codes.filter((item) => item.expiresAt && formatter.format(new Date(item.expiresAt)) === today);
+}
+
 async function fetchJson(url) {
   const response = await net.fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`${url} returned ${response.status}`);
@@ -48,6 +58,32 @@ async function scheduleData(date = "") {
   }
 }
 
+async function redemptionCodeData(view = "all", gameId = "") {
+  const safeView = view === "expiring-today" ? "expiring-today" : "all";
+  const safeGameId = ["monster", "wuthering", "genshin"].includes(gameId) ? gameId : "";
+  const cachePath = path.join(app.getPath("userData"), `redemption-cache-${safeView}-${safeGameId || "all"}.json`);
+  const route = safeView === "expiring-today" ? "redemption-codes/expiring-today" : "redemption-codes";
+  const url = `${API_BASE}/${route}${safeGameId ? `?gameId=${encodeURIComponent(safeGameId)}` : ""}`;
+  try {
+    const codes = await fetchJson(url);
+    if (!isValidRedemptionCodes(codes)) throw new Error("Invalid redemption code API response");
+    const payload = { codes, source: "remote", cachedAt: new Date().toISOString() };
+    await writeFile(cachePath, JSON.stringify(payload));
+    return payload;
+  } catch (remoteError) {
+    try {
+      const cached = JSON.parse(await readFile(cachePath, "utf8"));
+      if (isValidRedemptionCodes(cached.codes)) return { ...cached, source: "cache", warning: remoteError.message };
+    } catch {}
+    if (safeView === "expiring-today") {
+      const allUrl = `${API_BASE}/redemption-codes${safeGameId ? `?gameId=${encodeURIComponent(safeGameId)}` : ""}`;
+      const allCodes = await fetchJson(allUrl);
+      if (isValidRedemptionCodes(allCodes)) return { codes: redemptionCodesExpiringToday(allCodes), source: "derived", warning: "오늘 만료 API가 아직 제공되지 않아 전체 목록에서 KST 기준으로 계산했습니다." };
+    }
+    throw remoteError;
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({ width: 1440, height: 1024, minWidth: 900, minHeight: 650, show: !process.env.CAPTURE_PATH, backgroundColor: "#06111f", title: "게임타임", webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false } });
   const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -74,6 +110,7 @@ app.whenReady().then(() => {
   ipcMain.handle("open-external", (_, url) => shell.openExternal(url));
   ipcMain.handle("test-notification", (_, title, body) => new Notification({ title, body }).show());
   ipcMain.handle("fetch-schedule-data", (_, date) => scheduleData(date));
+  ipcMain.handle("fetch-redemption-codes", (_, view, gameId) => redemptionCodeData(view, gameId));
   createTray();
 });
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

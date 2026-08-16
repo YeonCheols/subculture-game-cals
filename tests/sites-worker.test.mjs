@@ -82,6 +82,19 @@ test("proxies dated remote event queries without losing the date", async (contex
   assert.deepEqual(await response.json(), [{ id: "remote-event" }]);
 });
 
+test("proxies redemption code views and game filters", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const targets = [];
+  globalThis.fetch = async (input) => { targets.push(String(input)); return Response.json([]); };
+  context.after(() => { globalThis.fetch = originalFetch; });
+  await worker.fetch(new Request("https://example.test/remote-api/redemption-codes?gameId=genshin"), {});
+  await worker.fetch(new Request("https://example.test/remote-api/redemption-codes/expiring-today?gameId=monster"), {});
+  assert.deepEqual(targets, [
+    "https://subculture-schdule-api.vercel.app/api/v1/redemption-codes?gameId=genshin",
+    "https://subculture-schdule-api.vercel.app/api/v1/redemption-codes/expiring-today?gameId=monster",
+  ]);
+});
+
 test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
   await access(new URL("../dist/server/index.js", import.meta.url));

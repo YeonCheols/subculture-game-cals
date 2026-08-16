@@ -23,7 +23,7 @@ Its core user flow is to scan ended, active, and upcoming schedules, subscribe t
 
 | Surface | Technology | Entry point | Data path |
 | --- | --- | --- | --- |
-| Browser development | React 19 + Vite 6 | `src/main.jsx` → `src/App.jsx` | Vite `/remote-api` proxy, then bundled JSON fallback |
+| Browser development | React 19 + Vite 6 | `src/main.jsx` → `src/App.jsx` | Vite `/remote-api` proxy; schedules then use bundled JSON fallback |
 | Hosted web/Sites | Static Vite client + Worker | `dist/client`, `dist/server/index.js` | Worker `/remote-api/*` proxy, then bundled JSON fallback |
 | Electron desktop | Electron 43 + React client | `electron/main.cjs`, `electron/preload.cjs` | Main-process HTTPS request, per-query cache, bundled JSON fallback |
 | Android / iOS | Capacitor 8 + React client | `android/`, `ios/`, `capacitor.config.json` | Native HTTP request, Preferences cache, bundled JSON fallback |
@@ -68,9 +68,12 @@ The renderer has `contextIsolation: true` and `nodeIntegration: false`. Keep pri
 - `openExternal(url)`
 - `testNotification(title, body)`
 - `fetchScheduleData(date)`
+- `fetchRedemptionCodes(view, gameId)`
 - `onRefreshSchedules(callback)`
 
 Electron retrieves schedules in the main process from the remote API. It writes the last valid response to the Electron user-data directory as `schedule-cache-all.json` or `schedule-cache-YYYY-MM-DD.json`. Resolution order is remote → matching cache → bundled JSON. Do not move remote schedule access into the renderer.
+
+Electron also retrieves redemption codes in the main process and caches successful responses per view and game filter. The client uses `GET /api/v1/redemption-codes` for the full list and `GET /api/v1/redemption-codes/expiring-today` for codes whose expiry date is today in KST; both accept the optional `gameId` filter. Browser development uses the existing `/remote-api` proxy and Capacitor uses native HTTP with Preferences cache.
 
 ### Hosted worker and build contract
 
@@ -145,6 +148,7 @@ The scheduled GitHub Action runs daily at `00:10 KST` from `develop`, tests the 
 - Timeline rows and calendar events open the same in-app detail modal.
 - The detail modal exposes verified timing, status, provenance, reminders, and the official source link.
 - Do not expose standalone source or settings navigation while those surfaces have no functional content; provenance remains available in event details.
+- The redemption-code surface has separate full-list and KST-today-expiry tabs, game filtering, text search, code copy, and official redemption/source actions.
 - Game subscription and reminder selections persist through the platform storage adapter (`localStorage` on web/Electron and Preferences on mobile).
 - Exact-date filtering applies to both timeline and calendar and refetches the runtime API.
 - Default visibility includes only schedules whose KST start date is today or later; `전체보기` includes the full past and future history.

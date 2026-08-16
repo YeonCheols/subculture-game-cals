@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconChevronDown, IconClock, IconExternalLink, IconFileText, IconLayoutList, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconCheck, IconChevronDown, IconClock, IconCopy, IconExternalLink, IconFileText, IconGift, IconLayoutList, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { kstDateKey, toScheduleGroups } from "./core/schedules";
 import { games } from "./data/schedules";
 import { openExternalUrl } from "./platform/links";
 import { initializeNativeNotifications, showTestNotification, syncNativeReminders } from "./platform/notifications";
 import { fetchScheduleData, onPlatformScheduleRefresh } from "./platform/schedules";
+import { fetchRedemptionCodes } from "./platform/redemptionCodes";
 import { usePersistentState } from "./platform/usePersistentState";
 import "./event-detail.css";
 import "./game-icons.css";
 import "./date-filter.css";
+import "./redemption-codes.css";
 
 const typeLabels = ["전체", "업데이트", "공식방송", "이벤트", "픽업"];
 const statusLabels = ["전체 상태", "진행중", "예정", "종료"];
@@ -28,13 +30,14 @@ function Sidebar({ subscribed, onToggleGame, page, setPage, notificationCount, l
       <button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconCalendar size={21} /><span>일정</span></button>
       <button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={21} /><span>캘린더</span></button>
       <button onClick={() => setPage("notifications")} className={page === "notifications" ? "is-active" : ""}><IconBell size={21} /><span>알림</span><b>{notificationCount}</b></button>
+      <button onClick={() => setPage("redemption")} className={page === "redemption" ? "is-active" : ""}><IconGift size={21} /><span>리딤코드</span></button>
     </nav>
     <div className="sidebar__bottom"><div className="sync-status"><span>{lastSyncedAt ? `마지막 동기화: ${new Date(lastSyncedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "저장된 일정 표시 중"}</span><IconRefresh size={14} /></div></div>
   </aside>;
 }
 
 function FilterSelect({ value, options, onChange }) {
-  return <label className="select-control"><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select><IconChevronDown size={16} /></label>;
+  return <label className="select-control"><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => { const entry = typeof option === "string" ? { label: option, value: option } : option; return <option key={entry.value} value={entry.value}>{entry.label}</option>; })}</select><IconChevronDown size={16} /></label>;
 }
 
 function ScheduleRow({ item, notifications, toggleNotification, onOpen }) {
@@ -100,6 +103,40 @@ function NotificationPanel({ allItems, notifications, toggleNotification, embedd
   return <aside className={`notification-panel ${embedded ? "notification-panel--embedded" : ""}`}><header><div><h2>일정 알림 <b>{notifiedItems.length}</b></h2><span>선택한 일정 시작 1시간 전 알림</span></div></header><div className="notification-list">{notifiedItems.slice(0, embedded ? 50 : 5).map((item) => { const game = games.find((entry) => entry.id === item.gameId); return <article key={item.id}><time>{item.time}</time><GameMark game={game} size="sm" /><div><strong>{game.shortName}</strong><span>{item.title}</span><small>{item.reminder}</small></div><button onClick={() => toggleNotification(item.id)} aria-label="알림 제거"><IconX size={16} /></button></article>; })}{!notifiedItems.length && <div className="panel-empty"><IconBell size={26} /><span>등록된 알림이 없습니다.</span></div>}</div><button className="read-all" onClick={showTestNotification}>알림 테스트</button></aside>;
 }
 
+function RedemptionCodes({ searchQuery }) {
+  const [view, setView] = useState("all");
+  const [gameId, setGameId] = useState("");
+  const [codes, setCodes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const result = await fetchRedemptionCodes(view, gameId);
+      setCodes(result.codes);
+      if (result.warning) setError(result.source === "cache" ? `캐시 데이터 표시 중 · ${result.warning}` : result.warning);
+    } catch (loadError) {
+      setCodes([]);
+      setError(loadError.message || "리딤코드를 불러오지 못했습니다.");
+    } finally { setLoading(false); }
+  }, [view, gameId]);
+  useEffect(() => { load(); }, [load]);
+  const visibleCodes = useMemo(() => codes.filter((item) => `${item.code} ${item.sourceTitle || ""}`.toLowerCase().includes(searchQuery.toLowerCase())), [codes, searchQuery]);
+  const copyCode = async (item) => {
+    await navigator.clipboard.writeText(item.code);
+    setCopiedId(item.id);
+    window.setTimeout(() => setCopiedId(""), 1600);
+  };
+  const formatExpiry = (value) => value ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "만료일 미정";
+  return <section className="redemption-page">
+    <header className="redemption-hero"><div><span className="redemption-hero__eyebrow">OFFICIAL REDEMPTION CODES</span><h1>리딤코드 보관함</h1><p>공식 공지에서 확인된 공용 코드만 모았습니다. 코드를 복사한 뒤 게임별 교환 페이지에서 사용하세요.</p></div><IconGift size={46} /></header>
+    <div className="redemption-controls"><div className="redemption-tabs" role="tablist"><button role="tab" aria-selected={view === "all"} className={view === "all" ? "is-active" : ""} onClick={() => setView("all")}>전체 코드 <b>{view === "all" ? codes.length : ""}</b></button><button role="tab" aria-selected={view === "expiring-today"} className={view === "expiring-today" ? "is-active is-urgent" : ""} onClick={() => setView("expiring-today")}>오늘 만료 <b>{view === "expiring-today" ? codes.length : ""}</b></button></div><FilterSelect value={gameId} options={[{ label: "모든 게임", value: "" }, ...games.map((game) => ({ label: game.shortName, value: game.id }))]} onChange={setGameId} /></div>
+    {error && <div className="redemption-warning"><span>{error}</span><button onClick={load}>다시 시도</button></div>}
+    {loading ? <div className="empty-state"><IconRefresh className="spin-icon" size={28} /><strong>공식 리딤코드를 불러오는 중입니다</strong></div> : visibleCodes.length ? <div className="redemption-grid">{visibleCodes.map((item) => { const game = games.find((entry) => entry.id === item.gameId); const targetUrl = item.redemptionUrl || item.sourceUrl; return <article className="redemption-card" key={item.id}><header><GameMark game={game} /><div><strong>{game?.name || item.gameId}</strong><span className={`code-status code-status--${item.status}`}>{item.status === "active" ? "사용 가능" : item.status === "expired" ? "만료" : "기간 미정"}</span></div></header><button className="redemption-code" onClick={() => copyCode(item)} title="코드 복사"><code>{item.code}</code>{copiedId === item.id ? <IconCheck size={19} /> : <IconCopy size={19} />}</button><div className="redemption-expiry"><IconClock size={16} /><span>{formatExpiry(item.expiresAt)}</span></div><p>{item.sourceTitle}</p><footer><button onClick={() => copyCode(item)}>{copiedId === item.id ? "복사 완료" : "코드 복사"}</button><button onClick={() => openExternalUrl(targetUrl)}>{item.redemptionUrl ? "교환하러 가기" : "공식 공지 보기"}<IconExternalLink size={15} /></button></footer></article>; })}</div> : <div className="empty-state"><IconGift size={30} /><strong>{view === "expiring-today" ? "오늘 만료되는 리딤코드가 없습니다" : "조건에 맞는 리딤코드가 없습니다"}</strong><span>{gameId || searchQuery ? "게임 필터나 검색어를 바꿔보세요." : "새 공식 코드가 확인되면 여기에 표시됩니다."}</span></div>}
+  </section>;
+}
+
 export function App() {
   const [page, setPage] = useState("schedule");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -122,5 +159,5 @@ export function App() {
   useEffect(() => { let cleanup = () => {}; initializeNativeNotifications(setPendingOpenEventId).then((removeListener) => { cleanup = removeListener; }); return () => cleanup(); }, []);
   useEffect(() => { if (notificationsHydrated && reminderEvents) syncNativeReminders(reminderEvents, notifications).catch((error) => console.error("네이티브 알림을 동기화하지 못했습니다.", error)); }, [reminderEvents, notifications, notificationsHydrated]);
   useEffect(() => { if (!pendingOpenEventId) return; const item = reminderItems.find((event) => event.id === pendingOpenEventId); if (item) { setSelectedItem(item); setPage("schedule"); setPendingOpenEventId(null); } }, [reminderItems, pendingOpenEventId]);
-  return <div className="app-shell"><Sidebar subscribed={subscribed} onToggleGame={toggleGame} page={page} setPage={setPage} notificationCount={notifications.length} lastSyncedAt={lastSyncedAt} /><main className="workspace"><header className="toolbar"><label className="search-box"><IconSearch size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="일정, 게임, 키워드 검색" /><kbd>/</kbd></label><div className="view-switch"><button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconLayoutList size={18} />목록</button><button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={18} />캘린더</button></div><button className={`refresh-button ${isRefreshing ? "is-loading" : ""}`} onClick={refresh} title="일정 새로고침"><IconRefresh size={19} /></button></header>{page !== "notifications" && <section className="filters"><FilterSelect value={gameFilter} options={["모든 게임", ...games.map((game) => game.shortName)]} onChange={setGameFilter} /><label className={`date-filter ${dateFilter ? "has-value" : ""}`}><IconCalendar size={16} /><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="일정 날짜 검색" />{dateFilter && <button type="button" onClick={() => setDateFilter("")} aria-label="날짜 필터 초기화"><IconX size={14} /></button>}</label><FilterSelect value={typeFilter} options={typeLabels} onChange={setTypeFilter} /><FilterSelect value={statusFilter} options={statusLabels} onChange={setStatusFilter} /><label className="checkbox"><input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} /><span />전체보기</label><IconAdjustmentsHorizontal className="filter-icon" size={19} /></section>}<section className="content-area">{page === "notifications" ? <NotificationPanel embedded allItems={reminderItems} notifications={notifications} toggleNotification={toggleNotification} /> : page === "calendar" ? <MiniCalendar groups={visibleGroups} onOpen={setSelectedItem} focusDate={dateFilter} /> : <Timeline groups={visibleGroups} notifications={notifications} toggleNotification={toggleNotification} onOpen={setSelectedItem} />}</section></main>{page !== "notifications" && <NotificationPanel allItems={reminderItems} notifications={notifications} toggleNotification={toggleNotification} />}<EventDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} notifications={notifications} toggleNotification={toggleNotification} /></div>;
+  return <div className="app-shell"><Sidebar subscribed={subscribed} onToggleGame={toggleGame} page={page} setPage={setPage} notificationCount={notifications.length} lastSyncedAt={lastSyncedAt} /><main className="workspace"><header className="toolbar"><label className="search-box"><IconSearch size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={page === "redemption" ? "코드, 공식 공지 검색" : "일정, 게임, 키워드 검색"} /><kbd>/</kbd></label>{page !== "redemption" && <div className="view-switch"><button className={page === "schedule" ? "is-active" : ""} onClick={() => setPage("schedule")}><IconLayoutList size={18} />목록</button><button className={page === "calendar" ? "is-active" : ""} onClick={() => setPage("calendar")}><IconCalendar size={18} />캘린더</button></div>}<button className={`refresh-button ${isRefreshing ? "is-loading" : ""}`} onClick={refresh} title="일정 새로고침"><IconRefresh size={19} /></button></header>{page !== "notifications" && page !== "redemption" && <section className="filters"><FilterSelect value={gameFilter} options={["모든 게임", ...games.map((game) => game.shortName)]} onChange={setGameFilter} /><label className={`date-filter ${dateFilter ? "has-value" : ""}`}><IconCalendar size={16} /><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="일정 날짜 검색" />{dateFilter && <button type="button" onClick={() => setDateFilter("")} aria-label="날짜 필터 초기화"><IconX size={14} /></button>}</label><FilterSelect value={typeFilter} options={typeLabels} onChange={setTypeFilter} /><FilterSelect value={statusFilter} options={statusLabels} onChange={setStatusFilter} /><label className="checkbox"><input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} /><span />전체보기</label><IconAdjustmentsHorizontal className="filter-icon" size={19} /></section>}<section className="content-area">{page === "redemption" ? <RedemptionCodes searchQuery={query} /> : page === "notifications" ? <NotificationPanel embedded allItems={reminderItems} notifications={notifications} toggleNotification={toggleNotification} /> : page === "calendar" ? <MiniCalendar groups={visibleGroups} onOpen={setSelectedItem} focusDate={dateFilter} /> : <Timeline groups={visibleGroups} notifications={notifications} toggleNotification={toggleNotification} onOpen={setSelectedItem} />}</section></main>{page !== "notifications" && page !== "redemption" && <NotificationPanel allItems={reminderItems} notifications={notifications} toggleNotification={toggleNotification} />}<EventDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} notifications={notifications} toggleNotification={toggleNotification} /></div>;
 }
