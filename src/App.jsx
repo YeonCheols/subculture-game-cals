@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconClock, IconCopy, IconExternalLink, IconFileText, IconGift, IconLayoutList, IconPhoto, IconRefresh, IconSearch, IconSword, IconUser, IconX } from "@tabler/icons-react";
 import { kstDateKey, toScheduleGroups, UNDATED_PICKUP_GROUP } from "./core/schedules";
 import { games } from "./data/schedules";
@@ -11,6 +11,7 @@ import "./event-detail.css";
 import "./banner-detail.css";
 import "./modal-layout.css";
 import "./undated-pickups.css";
+import "./custom-select.css";
 import "./game-icons.css";
 import "./date-filter.css";
 import "./redemption-codes.css";
@@ -40,7 +41,27 @@ function Sidebar({ subscribed, onToggleGame, page, setPage, notificationCount, l
 }
 
 function FilterSelect({ value, options, onChange }) {
-  return <label className="select-control"><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => { const entry = typeof option === "string" ? { label: option, value: option } : option; return <option key={entry.value} value={entry.value}>{entry.label}</option>; })}</select><IconChevronDown size={16} /></label>;
+  const entries = options.map((option) => typeof option === "string" ? { label: option, value: option } : option);
+  const selectedIndex = Math.max(0, entries.findIndex((entry) => entry.value === value));
+  const [open, setOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(selectedIndex);
+  const rootRef = useRef(null);
+  useEffect(() => { setFocusedIndex(selectedIndex); }, [selectedIndex]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [open]);
+  const choose = (entry) => { onChange(entry.value); setOpen(false); };
+  const onKeyDown = (event) => {
+    if (event.key === "Escape") { setOpen(false); return; }
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); if (open) choose(entries[focusedIndex]); else setOpen(true); return; }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); const direction = event.key === "ArrowDown" ? 1 : -1; setOpen(true); setFocusedIndex((current) => (current + direction + entries.length) % entries.length); }
+    if (event.key === "Home") { event.preventDefault(); setOpen(true); setFocusedIndex(0); }
+    if (event.key === "End") { event.preventDefault(); setOpen(true); setFocusedIndex(entries.length - 1); }
+  };
+  return <div className={`custom-select ${open ? "is-open" : ""}`} ref={rootRef}><button type="button" className="custom-select__trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} onKeyDown={onKeyDown}><span>{entries[selectedIndex]?.label}</span><IconChevronDown size={16} /></button>{open && <div className="custom-select__menu" role="listbox" tabIndex={-1}>{entries.map((entry, index) => <button type="button" role="option" aria-selected={entry.value === value} className={`${entry.value === value ? "is-selected" : ""} ${index === focusedIndex ? "is-focused" : ""}`} key={entry.value} onMouseEnter={() => setFocusedIndex(index)} onClick={() => choose(entry)}><span>{entry.label}</span>{entry.value === value && <IconCheck size={15} />}</button>)}</div>}</div>;
 }
 
 function ScheduleRow({ item, notifications, toggleNotification, onOpen }) {
