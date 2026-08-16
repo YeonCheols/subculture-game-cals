@@ -5,3 +5,6 @@ dist/
 .vercel/
 .vercel
 data/raw/
+*.jks
+*.keystore
+.release-secrets/

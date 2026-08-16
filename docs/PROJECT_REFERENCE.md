@@ -28,7 +28,7 @@ Its core user flow is to scan ended, active, and upcoming schedules, subscribe t
 | Electron desktop | Electron 43 + React client | `electron/main.cjs`, `electron/preload.cjs` | Main-process HTTPS request, per-query cache, bundled JSON fallback |
 | Android / iOS | Capacitor 8 + React client | `android/`, `ios/`, `capacitor.config.json` | Native HTTP request, Preferences cache, bundled JSON fallback |
 | Schedule collection | Node.js scripts + Electron browser rendering where required | `scripts/collector/index.mjs` | Official public sources → normalized JSON and raw snapshots |
-| Automation | GitHub Actions | `.github/workflows/collect-schedules.yml` | Daily collection on `develop` |
+| Automation | GitHub Actions | `.github/workflows/` | Daily collection on `develop`; tagged desktop and mobile release builds |
 | Production deployment | Vercel | `vercel.json` | Git-connected project; production branch is `develop` |
 
 The package is ESM by default (`"type": "module"`). Electron main/preload and browser-rendering helpers use CommonJS where their `.cjs` extension requires it. Dependency versions are pinned exactly in `package.json`.
@@ -193,6 +193,8 @@ npm run build:ios
 ```
 
 `build:win` forces an NSIS x64 package regardless of the build host architecture and emits `dist/GameTime-<version>-win-x64.exe`. Release installers are built on the Windows x64 GitHub Actions runner because electron-builder's Windows resource-editing Wine binary does not run natively on Apple Silicon macOS. A `v*` tag publishes the installer and blockmap to the matching GitHub Release only after the workflow's silent-install payload check succeeds.
+
+The same `v*` tag runs the mobile release workflow. Android restores a persistent self-managed signing key from GitHub Actions secrets and publishes signed APK and AAB assets. iOS is built without code signing and published as a ZIP containing the unsigned `.app`; this asset is for build inspection and cannot be installed on ordinary iOS devices. Android release signing uses `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` repository secrets. The private keystore must never be committed and must be backed up securely because future APK updates require the same signing identity.
 
 Validation by change type:
 
