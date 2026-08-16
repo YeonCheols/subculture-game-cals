@@ -58,4 +58,12 @@ jobs:
           $assets = @($installer.FullName)
           $blockmap = Get-Item "$($installer.FullName).blockmap" -ErrorAction SilentlyContinue
           if ($blockmap) { $assets += $blockmap.FullName }
-          gh release create "${{ github.ref_name }}" $assets --generate-notes --title "GameTime ${{ github.ref_name }}"
+          gh release view "${{ github.ref_name }}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "${{ github.ref_name }}" --generate-notes --title "GameTime ${{ github.ref_name }}"
+            if ($LASTEXITCODE -ne 0) {
+              gh release view "${{ github.ref_name }}"
+              if ($LASTEXITCODE -ne 0) { throw "GitHub Release could not be created or found." }
+            }
+          }
+          gh release upload "${{ github.ref_name }}" $assets --clobber
