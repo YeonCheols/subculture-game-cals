@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconCheck, IconChevronDown, IconClock, IconCopy, IconExternalLink, IconFileText, IconGift, IconLayoutList, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
-import { kstDateKey, toScheduleGroups } from "./core/schedules";
+import { IconAdjustmentsHorizontal, IconBell, IconBellFilled, IconCalendar, IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconClock, IconCopy, IconExternalLink, IconFileText, IconGift, IconLayoutList, IconPhoto, IconRefresh, IconSearch, IconSword, IconUser, IconX } from "@tabler/icons-react";
+import { kstDateKey, toScheduleGroups, UNDATED_PICKUP_GROUP } from "./core/schedules";
 import { games } from "./data/schedules";
 import { openExternalUrl } from "./platform/links";
 import { initializeNativeNotifications, showTestNotification, syncNativeReminders } from "./platform/notifications";
@@ -8,6 +8,8 @@ import { fetchScheduleData, onPlatformScheduleRefresh } from "./platform/schedul
 import { fetchRedemptionCodes } from "./platform/redemptionCodes";
 import { usePersistentState } from "./platform/usePersistentState";
 import "./event-detail.css";
+import "./banner-detail.css";
+import "./modal-layout.css";
 import "./game-icons.css";
 import "./date-filter.css";
 import "./redemption-codes.css";
@@ -71,13 +73,37 @@ function MiniCalendar({ groups, onOpen, focusDate }) {
   return <section className="calendar-view"><header><button onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="이전 달">‹</button><h2>{year}년 {month + 1}월</h2><button onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="다음 달">›</button></header><div className="calendar-grid calendar-grid--weekdays">{weekdays.map((day) => <b key={day}>{day}</b>)}</div><div className="calendar-grid calendar-grid--events">{cells.map((day, index) => { const dateKey = day ? keyFor(day) : null; const items = dateKey ? byDate.get(dateKey) || [] : []; return <div key={index} className={`calendar-day ${dateKey === todayKey ? "is-today" : ""} ${items.length ? "has-event" : ""}`}><span>{day || ""}</span><div>{items.slice(0, 3).map((item) => { const game = games.find((entry) => entry.id === item.gameId); return <button key={item.id} onClick={() => onOpen(item)} style={{ "--game": game.color }} title={item.title}><i />{item.time} {item.title}</button>; })}{items.length > 3 && <small>+{items.length - 3}개</small>}</div></div>; })}</div></section>;
 }
 
+function BannerTargets({ icon, title, targets }) {
+  if (!targets?.length) return null;
+  return <section className="event-banner__targets"><h4>{icon}{title}<b>{targets.length}</b></h4><div>{targets.map((target, index) => <span className={`event-banner__target event-banner__target--${target.rarity || "unknown"}`} key={`${target.name}-${index}`}><strong>{target.name}</strong><small>{target.rarity ? `${target.rarity}성` : "희귀도 미정"}</small></span>)}</div></section>;
+}
+
+function isDisplayableBannerImage(url) {
+  try { return !decodeURIComponent(url).includes("공지사항"); }
+  catch { return !url.toLowerCase().includes("%ea%b3%b5%ec%a7%80%ec%82%ac%ed%95%ad"); }
+}
+
+function EventBannerDetails({ banners, onOpenImage }) {
+  if (!Array.isArray(banners) || !banners.length) return null;
+  const kindLabel = { character: "캐릭터 픽업", weapon: "무기 픽업", mixed: "캐릭터 · 무기 픽업" };
+  const phaseLabel = { first: "1차", second: "2차", unknown: "차수 미정" };
+  return <section className="event-banners" aria-labelledby="event-banners-title"><header><div><span>OFFICIAL BANNER DATA</span><h3 id="event-banners-title">픽업 상세</h3></div><b>{banners.length}개 배너</b></header><div className="event-banners__list">{banners.map((banner, index) => { const images = [...new Set(banner.sourceImageUrls || [])].filter(isDisplayableBannerImage); return <article className="event-banner" key={`${banner.name}-${index}`}><div className="event-banner__heading"><div><strong>{banner.name}</strong><span>{kindLabel[banner.kind] || "픽업 배너"}</span></div><b>{phaseLabel[banner.phase] || "차수 미정"}</b></div>{images.length > 0 && <section className="event-banner__gallery"><h4><IconPhoto size={15} />공식 배너 이미지<b>{images.length}</b></h4><div>{images.map((url, imageIndex) => <button key={url} onClick={() => onOpenImage(images, imageIndex, banner.name)} aria-label={`${banner.name} 공식 이미지 ${imageIndex + 1} 확대`}><img src={url} alt={`${banner.name} 공식 이미지 ${imageIndex + 1}`} loading="lazy" /><span><IconPhoto size={14} />확대 보기</span></button>)}</div></section>}<div className="event-banner__columns"><BannerTargets icon={<IconUser size={15} />} title="픽업 캐릭터" targets={banner.featuredCharacters} /><BannerTargets icon={<IconSword size={15} />} title="픽업 무기" targets={banner.featuredWeapons} /></div></article>; })}</div></section>;
+}
+
+function BannerImageLightbox({ gallery, onClose, onMove }) {
+  if (!gallery) return null;
+  const { images, index, title } = gallery;
+  return <div className="banner-lightbox" role="dialog" aria-modal="true" aria-label={`${title} 공식 이미지 확대`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><header><div><strong>{title}</strong><span>{index + 1} / {images.length}</span></div><button onClick={onClose} aria-label="이미지 닫기"><IconX size={22} /></button></header><div className="banner-lightbox__stage">{images.length > 1 && <button className="banner-lightbox__arrow banner-lightbox__arrow--prev" onClick={() => onMove(-1)} aria-label="이전 이미지"><IconChevronLeft size={28} /></button>}<img src={images[index]} alt={`${title} 공식 이미지 ${index + 1}`} />{images.length > 1 && <button className="banner-lightbox__arrow banner-lightbox__arrow--next" onClick={() => onMove(1)} aria-label="다음 이미지"><IconChevronRight size={28} /></button>}</div><footer><button onClick={() => openExternalUrl(images[index])}>원본 이미지 열기<IconExternalLink size={16} /></button></footer></div>;
+}
+
 function EventDetailModal({ item, onClose, notifications, toggleNotification }) {
+  const [imageGallery, setImageGallery] = useState(null);
   useEffect(() => {
     if (!item) return undefined;
-    const closeOnEscape = (event) => { if (event.key === "Escape") onClose(); };
+    const closeOnEscape = (event) => { if (event.key === "Escape") { if (imageGallery) setImageGallery(null); else onClose(); } if (imageGallery && event.key === "ArrowLeft") setImageGallery((current) => ({ ...current, index: (current.index - 1 + current.images.length) % current.images.length })); if (imageGallery && event.key === "ArrowRight") setImageGallery((current) => ({ ...current, index: (current.index + 1) % current.images.length })); };
     window.addEventListener("keydown", closeOnEscape); document.body.classList.add("modal-open");
     return () => { window.removeEventListener("keydown", closeOnEscape); document.body.classList.remove("modal-open"); };
-  }, [item, onClose]);
+  }, [item, onClose, imageGallery]);
   if (!item) return null;
   const game = games.find((entry) => entry.id === item.gameId);
   const notified = notifications.includes(item.id);
@@ -91,10 +117,11 @@ function EventDetailModal({ item, onClose, notifications, toggleNotification }) 
         <h2 id="event-modal-title">{item.title}</h2>
         <p className="event-modal__summary">{item.summary || "공식 공지에서 확인된 일정입니다. 아래 원문에서 전체 안내와 참여 조건을 확인할 수 있습니다."}</p>
         <dl className="event-modal__facts"><div><dt>시작</dt><dd>{dateTime(item.startsAt)}</dd></div><div><dt>종료</dt><dd>{dateTime(item.endsAt)}</dd></div><div><dt>확인된 시간</dt><dd>{item.sourceTimeText || "공식 공지 참조"}</dd></div><div><dt>데이터 상태</dt><dd>{item.confidence === "confirmed" ? "공식 출처 확인 완료" : "확인 중"}</dd></div></dl>
+        <EventBannerDetails banners={item.banners} onOpenImage={(images, index, title) => setImageGallery({ images, index, title })} />
         <aside className="event-modal__source"><IconFileText size={18} /><div><strong>공식 출처</strong><span>{item.sourceTitle || game.name}</span><small>{item.sourceUrl}</small></div></aside>
       </div>
       <footer><button className={`event-modal__notify ${notified ? "is-active" : ""}`} onClick={() => toggleNotification(item.id)}>{notified ? <IconBellFilled size={18} /> : <IconBell size={18} />}{notified ? "알림 설정됨" : "일정 알림 받기"}</button><button className="event-modal__source-button" onClick={openSource}>공식 원문 보기<IconExternalLink size={17} /></button></footer>
-    </section>
+    </section><BannerImageLightbox gallery={imageGallery} onClose={() => setImageGallery(null)} onMove={(direction) => setImageGallery((current) => ({ ...current, index: (current.index + direction + current.images.length) % current.images.length }))} />
   </div>;
 }
 
@@ -151,10 +178,10 @@ export function App() {
   const activeGroups = remoteGroups;
   const allItems = useMemo(() => activeGroups.flatMap((group) => group.items), [activeGroups]);
   const reminderItems = useMemo(() => reminderEvents ? toScheduleGroups(reminderEvents, games).flatMap((group) => group.items) : [], [reminderEvents]);
-  const visibleGroups = useMemo(() => { const today = kstDateKey(); return activeGroups.map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (showAll || dateFilter || group.date >= today) && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length); }, [activeGroups, query, gameFilter, dateFilter, typeFilter, statusFilter, showAll, subscribed]);
+  const visibleGroups = useMemo(() => { const today = kstDateKey(); return activeGroups.map((group) => ({ ...group, items: group.items.filter((item) => { const game = games.find((entry) => entry.id === item.gameId); return subscribed.includes(item.gameId) && (gameFilter === "모든 게임" || game.shortName === gameFilter) && (typeFilter === "전체" || item.type === typeFilter) && (statusFilter === "전체 상태" || item.status === statusFilter) && (group.date === UNDATED_PICKUP_GROUP || showAll || dateFilter || group.date >= today) && (`${item.title} ${game.name}`.toLowerCase().includes(query.toLowerCase())); }) })).filter((group) => group.items.length); }, [activeGroups, query, gameFilter, dateFilter, typeFilter, statusFilter, showAll, subscribed]);
   const toggleGame = (id) => setSubscribed((current) => current.includes(id) ? current.filter((gameId) => gameId !== id) : [...current, id]);
   const toggleNotification = (id) => setNotifications((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]);
-  const refresh = useCallback(async () => { setIsRefreshing(true); try { const payload = await fetchScheduleData(dateFilter); if (!Array.isArray(payload.events)) throw new Error("events response is not an array"); if (!dateFilter) setReminderEvents(payload.events); setRemoteGroups(toScheduleGroups(payload.events, games)); if (payload.status?.retrievedAt) setLastSyncedAt(payload.status.retrievedAt); } catch (error) { console.error("공식 일정 API를 불러오지 못했습니다.", error); } finally { setIsRefreshing(false); } }, [dateFilter]);
+  const refresh = useCallback(async () => { setIsRefreshing(true); try { const [payload, allPayload] = dateFilter ? await Promise.all([fetchScheduleData(dateFilter), fetchScheduleData("")]) : [await fetchScheduleData(""), null]; if (!Array.isArray(payload.events) || (allPayload && !Array.isArray(allPayload.events))) throw new Error("events response is not an array"); const undatedPickups = (allPayload?.events || []).filter((event) => event.type === "banner" && !event.startsAt); const mergedEvents = [...payload.events, ...undatedPickups.filter((pickup) => !payload.events.some((event) => event.id === pickup.id))]; setReminderEvents(allPayload?.events || payload.events); setRemoteGroups(toScheduleGroups(mergedEvents, games)); const status = payload.status || allPayload?.status; if (status?.retrievedAt) setLastSyncedAt(status.retrievedAt); } catch (error) { console.error("공식 일정 API를 불러오지 못했습니다.", error); } finally { setIsRefreshing(false); } }, [dateFilter]);
   useEffect(() => { refresh(); const timer = window.setInterval(refresh, 5 * 60 * 1000); const removePlatformListener = onPlatformScheduleRefresh(refresh); const refreshWhenVisible = () => { if (document.visibilityState === "visible") refresh(); }; document.addEventListener("visibilitychange", refreshWhenVisible); return () => { window.clearInterval(timer); removePlatformListener(); document.removeEventListener("visibilitychange", refreshWhenVisible); }; }, [refresh]);
   useEffect(() => { let cleanup = () => {}; initializeNativeNotifications(setPendingOpenEventId).then((removeListener) => { cleanup = removeListener; }); return () => cleanup(); }, []);
   useEffect(() => { if (notificationsHydrated && reminderEvents) syncNativeReminders(reminderEvents, notifications).catch((error) => console.error("네이티브 알림을 동기화하지 못했습니다.", error)); }, [reminderEvents, notifications, notificationsHydrated]);

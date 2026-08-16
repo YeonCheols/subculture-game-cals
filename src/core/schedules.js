@@ -3,6 +3,7 @@ const statusMap = { active: ["진행중", "live"], upcoming: ["예정", "upcomin
 
 export const KST_TIME_ZONE = "Asia/Seoul";
 export const DEFAULT_REMINDER_OFFSET_MINUTES = 60;
+export const UNDATED_PICKUP_GROUP = "undated-pickups";
 
 export function kstDateKey(value = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: KST_TIME_ZONE }).format(value);
@@ -28,12 +29,14 @@ export function toScheduleGroups(events, games) {
   const groups = new Map();
   for (const event of events) {
     const instant = event.startsAt;
-    if (!instant || !games.some((game) => game.id === event.gameId)) continue;
-    const date = kstDateKey(new Date(instant));
+    if (!games.some((game) => game.id === event.gameId)) continue;
+    const isUndatedPickup = !instant && event.type === "banner";
+    if (!instant && !isUndatedPickup) continue;
+    const date = isUndatedPickup ? UNDATED_PICKUP_GROUP : kstDateKey(new Date(instant));
     const [type, typeKey] = typeMap[event.type] || typeMap.notice;
     const [status, statusKey] = statusMap[event.status] || statusMap.unknown;
-    if (!groups.has(date)) groups.set(date, { date, label: date === today ? "오늘" : formatter.format(new Date(instant)).split(" ").at(-1), dateLabel: formatter.format(new Date(instant)), ...(date === today ? { tag: "오늘" } : {}), items: [] });
-    groups.get(date).items.push({ ...event, time: timeFormatter.format(new Date(instant)), type, typeKey, status, statusKey, source: "공식 공지", reminder: `${DEFAULT_REMINDER_OFFSET_MINUTES}분 전` });
+    if (!groups.has(date)) groups.set(date, isUndatedPickup ? { date, label: "시간 미정", dateLabel: "시작 일정 확인 중", tag: "상시 표시", items: [] } : { date, label: date === today ? "오늘" : formatter.format(new Date(instant)).split(" ").at(-1), dateLabel: formatter.format(new Date(instant)), ...(date === today ? { tag: "오늘" } : {}), items: [] });
+    groups.get(date).items.push({ ...event, time: isUndatedPickup ? "미정" : timeFormatter.format(new Date(instant)), type, typeKey, status, statusKey, source: "공식 공지", reminder: isUndatedPickup ? "시작 시간 확인 중" : `${DEFAULT_REMINDER_OFFSET_MINUTES}분 전` });
   }
-  return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return [...groups.values()].sort((a, b) => a.date === UNDATED_PICKUP_GROUP ? 1 : b.date === UNDATED_PICKUP_GROUP ? -1 : a.date.localeCompare(b.date));
 }

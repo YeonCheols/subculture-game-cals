@@ -109,6 +109,7 @@ Published events live in `public/api/events.json`. Only events with an explicitl
 | `retrievedAt` | yes | Collector retrieval timestamp |
 | `version` | nullable | Parsed game version when present |
 | `summary` | yes | Short official-source summary, possibly empty |
+| `banners` | optional | Enriched pickup details: banner name, kind, phase, featured characters/weapons with rarity, and official source image URLs |
 
 Status is recomputed on every collection:
 
@@ -146,12 +147,13 @@ The scheduled GitHub Action runs daily at `00:10 KST` from `develop`, tests the 
 
 - Use official locally stored app icons for all shared game markers.
 - Timeline rows and calendar events open the same in-app detail modal.
-- The detail modal exposes verified timing, status, provenance, reminders, and the official source link.
+- The detail modal exposes verified timing, status, provenance, reminders, and the official source link. Enriched pickup events additionally expose banner name, kind, phase, featured character/weapon names with rarity, and official source images in a gallery with enlarged viewing.
 - Do not expose standalone source or settings navigation while those surfaces have no functional content; provenance remains available in event details.
 - The redemption-code surface has separate full-list and KST-today-expiry tabs, game filtering, text search, code copy, and official redemption/source actions.
 - Game subscription and reminder selections persist through the platform storage adapter (`localStorage` on web/Electron and Preferences on mobile).
 - Exact-date filtering applies to both timeline and calendar and refetches the runtime API.
 - Default visibility includes only schedules whose KST start date is today or later; `전체보기` includes the full past and future history.
+- Banner events without a verified `startsAt` remain visible in a dedicated `시간 미정` timeline group regardless of exact-date filtering. Date-filtered refreshes merge those records from the unfiltered endpoint; other undated event types stay hidden and undated banners are not placed in calendar date cells.
 - Keep the selected Timeline Command Center visual direction in `design-reference/selected-option-1.png` unless a newer approved reference replaces it.
 
 ## Repository map

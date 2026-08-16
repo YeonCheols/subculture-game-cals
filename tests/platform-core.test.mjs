@@ -21,3 +21,15 @@ test("display groups remain sorted by KST start date", () => {
   ];
   assert.deepEqual(toScheduleGroups(events, games).map(({ date }) => date), ["2026-08-09", "2026-08-10"]);
 });
+
+test("undated pickups remain visible in a dedicated group", () => {
+  const events = [
+    { id: "pickup", gameId: "genshin", type: "banner", status: "unknown", startsAt: null },
+    { id: "undated-event", gameId: "genshin", type: "event", status: "unknown", startsAt: null },
+  ];
+  const groups = toScheduleGroups(events, games);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].date, "undated-pickups");
+  assert.equal(groups[0].label, "시간 미정");
+  assert.deepEqual(groups[0].items.map(({ id, time }) => ({ id, time })), [{ id: "pickup", time: "미정" }]);
+});
