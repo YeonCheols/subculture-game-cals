@@ -10,6 +10,7 @@ import { usePersistentState } from "./platform/usePersistentState";
 import "./event-detail.css";
 import "./banner-detail.css";
 import "./modal-layout.css";
+import "./undated-pickups.css";
 import "./game-icons.css";
 import "./date-filter.css";
 import "./redemption-codes.css";
@@ -55,8 +56,9 @@ function ScheduleRow({ item, notifications, toggleNotification, onOpen }) {
 }
 
 function Timeline({ groups, notifications, toggleNotification, onOpen }) {
+  const [undatedOpen, setUndatedOpen] = useState(false);
   if (!groups.length) return <div className="empty-state"><IconSearch size={30} /><strong>조건에 맞는 일정이 없습니다</strong><span>검색어나 필터를 바꿔보세요.</span></div>;
-  return <div className="timeline">{groups.map((group) => <section className="day-group" key={group.date}><header><span className="timeline-dot" /><h2>{group.label}</h2><time>{group.dateLabel}</time>{group.tag && <b>{group.tag}</b>}</header><div className="day-group__items">{group.items.map((item) => <ScheduleRow key={item.id} item={item} notifications={notifications} toggleNotification={toggleNotification} onOpen={onOpen} />)}</div></section>)}</div>;
+  return <div className="timeline">{groups.map((group) => { const isUndated = group.date === UNDATED_PICKUP_GROUP; const expanded = !isUndated || undatedOpen; return <section className={`day-group ${isUndated ? "day-group--undated" : ""} ${expanded ? "is-expanded" : "is-collapsed"}`} key={group.date}><header>{isUndated ? <button className="undated-group-toggle" onClick={() => setUndatedOpen((current) => !current)} aria-expanded={expanded}><span className="timeline-dot" /><span className="undated-group-toggle__copy"><strong>{group.label}</strong><small>{group.dateLabel}</small></span><b>{group.items.length}개</b><span className="undated-group-toggle__tag">{expanded ? "접기" : "펼치기"}</span><IconChevronDown size={17} /></button> : <><span className="timeline-dot" /><h2>{group.label}</h2><time>{group.dateLabel}</time>{group.tag && <b>{group.tag}</b>}</>}</header>{expanded && <div className="day-group__items">{group.items.map((item) => <ScheduleRow key={item.id} item={item} notifications={notifications} toggleNotification={toggleNotification} onOpen={onOpen} />)}</div>}</section>; })}</div>;
 }
 
 function MiniCalendar({ groups, onOpen, focusDate }) {

@@ -16,6 +16,7 @@ GameTime is a Korean-first responsive web, Electron desktop, Android, and iOS ca
 - 몬길: STAR DIVE (`monster`)
 - 명조: 워더링 웨이브 (`wuthering`)
 - 원신 (`genshin`)
+- 이환 (`nte`)
 
 Its core user flow is to scan ended, active, and upcoming schedules, subscribe to games, open a shared in-app event detail modal, and manage desktop reminders. On initial entry the UI shows only schedules whose KST start date is today or later; `전체보기` reveals the full history. An exact-date query remains authoritative even for a past date.
 
@@ -94,7 +95,7 @@ Published events live in `public/api/events.json`. Only events with an explicitl
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `id` | yes | Stable `<gameId>-<canonical-url-hash>` identifier |
-| `gameId` | yes | `monster`, `wuthering`, or `genshin` |
+| `gameId` | yes | `monster`, `wuthering`, `genshin`, or `nte` |
 | `type` | yes | `event`, `update`, `maintenance`, `banner`, `broadcast`, or `notice` |
 | `title` | yes | User-facing normalized title |
 | `sourceTitle` | yes | Title retained from the official source |
@@ -153,7 +154,7 @@ The scheduled GitHub Action runs daily at `00:10 KST` from `develop`, tests the 
 - Game subscription and reminder selections persist through the platform storage adapter (`localStorage` on web/Electron and Preferences on mobile).
 - Exact-date filtering applies to both timeline and calendar and refetches the runtime API.
 - Default visibility includes only schedules whose KST start date is today or later; `전체보기` includes the full past and future history.
-- Banner events without a verified `startsAt` remain visible in a dedicated `시간 미정` timeline group regardless of exact-date filtering. Date-filtered refreshes merge those records from the unfiltered endpoint; other undated event types stay hidden and undated banners are not placed in calendar date cells.
+- Banner events without a verified `startsAt` remain available in a dedicated, default-collapsed `시간 미정` timeline group regardless of exact-date filtering. Activating its header reveals the rows. Date-filtered refreshes merge those records from the unfiltered endpoint; other undated event types stay hidden and undated banners are not placed in calendar date cells.
 - Keep the selected Timeline Command Center visual direction in `design-reference/selected-option-1.png` unless a newer approved reference replaces it.
 
 ## Repository map

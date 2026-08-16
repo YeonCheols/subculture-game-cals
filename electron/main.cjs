@@ -60,7 +60,7 @@ async function scheduleData(date = "") {
 
 async function redemptionCodeData(view = "all", gameId = "") {
   const safeView = view === "expiring-today" ? "expiring-today" : "all";
-  const safeGameId = ["monster", "wuthering", "genshin"].includes(gameId) ? gameId : "";
+  const safeGameId = ["monster", "wuthering", "genshin", "nte"].includes(gameId) ? gameId : "";
   const cachePath = path.join(app.getPath("userData"), `redemption-cache-${safeView}-${safeGameId || "all"}.json`);
   const route = safeView === "expiring-today" ? "redemption-codes/expiring-today" : "redemption-codes";
   const url = `${API_BASE}/${route}${safeGameId ? `?gameId=${encodeURIComponent(safeGameId)}` : ""}`;

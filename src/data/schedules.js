@@ -2,6 +2,7 @@ export const games = [
   { id: "monster", name: "몬길: STAR DIVE", shortName: "몬길: STAR DIVE", color: "#2bc7f1", soft: "#082f3e", icon: "./game-icons/monster.webp" },
   { id: "wuthering", name: "명조: 워더링 웨이브", shortName: "명조", color: "#9c6cff", soft: "#25183e", icon: "./game-icons/wuthering.webp" },
   { id: "genshin", name: "원신", shortName: "원신", color: "#eeb62e", soft: "#392b0c", icon: "./game-icons/genshin.webp" },
+  { id: "nte", name: "이환", shortName: "이환", color: "#24d4c5", soft: "#093936", icon: "./game-icons/nte.webp" },
 ];
 
 export const scheduleGroups = [

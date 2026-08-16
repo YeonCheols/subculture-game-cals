@@ -1,6 +1,6 @@
 # 게임타임
 
-몬길: STAR DIVE, 명조: 워더링 웨이브, 원신의 업데이트·공식방송·이벤트·픽업 일정을 한곳에서 확인하고 알림을 설정하는 웹/Electron/Android/iOS 앱입니다.
+몬길: STAR DIVE, 명조: 워더링 웨이브, 원신, 이환의 업데이트·공식방송·이벤트·픽업 일정을 한곳에서 확인하고 알림을 설정하는 웹/Electron/Android/iOS 앱입니다.
 
 프로젝트 아키텍처, 일정 데이터 계약, 공식 수집 정책, 런타임과 배포 기준은 AI 에이전트와 프로젝트 스킬이 함께 사용하는 [`docs/PROJECT_REFERENCE.md`](docs/PROJECT_REFERENCE.md)를 기준으로 합니다. 에이전트 행동 규칙과 확정된 제품 결정은 [`AGENTS.md`](AGENTS.md)에 있습니다.
 

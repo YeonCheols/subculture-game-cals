@@ -1,6 +1,6 @@
 ---
 name: fetch-subculture-game-info
-description: "Collect, verify, normalize, and update real event, update, banner, livestream, maintenance, and notice data for supported subculture games from official web sources. Use when Codex needs to fetch current information for 몬길: STAR DIVE, 명조: 워더링 웨이브, or 원신; replace prototype schedules; refresh stale game data; investigate official announcements; or build and maintain the game's ingestion pipeline."
+description: "Collect, verify, normalize, and update real event, update, banner, livestream, maintenance, and notice data for supported subculture games from official web sources. Use when Codex needs to fetch current information for 몬길: STAR DIVE, 명조: 워더링 웨이브, 원신, or 이환; replace prototype schedules; refresh stale game data; investigate official announcements; or build and maintain the game's ingestion pipeline."
 ---
 
 # Fetch Subculture Game Info

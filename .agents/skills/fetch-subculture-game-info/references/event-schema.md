@@ -5,7 +5,7 @@ The collector output is a JSON array. Each object uses these fields:
 | Field | Required | Meaning |
 |---|---:|---|
 | `id` | yes | Stable lowercase ID, preferably `<gameId>-<source-native-id>` |
-| `gameId` | yes | `monster`, `wuthering`, or `genshin` |
+| `gameId` | yes | `monster`, `wuthering`, `genshin`, or `nte` |
 | `type` | yes | `event`, `update`, `maintenance`, `banner`, `broadcast`, or `notice` |
 | `title` | yes | Concise Korean display title |
 | `sourceTitle` | yes | Title as published by the official source |
@@ -45,4 +45,3 @@ Example:
   }
 ]
 ```
-

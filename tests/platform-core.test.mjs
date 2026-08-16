@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { overlapsDate, reminderAt, toScheduleGroups } from "../src/core/schedules.js";
+import { games as supportedGames } from "../src/data/schedules.js";
 
 const games = [{ id: "genshin" }];
+
+test("includes NTE in the shared game registry", () => {
+  const nte = supportedGames.find((game) => game.id === "nte");
+  assert.equal(nte?.name, "이환");
+  assert.equal(nte?.icon, "./game-icons/nte.webp");
+});
 
 test("an event range overlaps the selected KST date", () => {
   const event = { startsAt: "2026-08-08T23:00:00+09:00", endsAt: "2026-08-10T01:00:00+09:00" };

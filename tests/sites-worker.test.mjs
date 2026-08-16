@@ -79,6 +79,7 @@ test("proxies dated remote event queries without losing the date", async (contex
   const response = await worker.fetch(new Request("https://example.test/remote-api/events?date=2026-08-07"), {});
   assert.equal(response.status, 200);
   assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v1/events?date=2026-08-07");
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), [{ id: "remote-event" }]);
 });
 
@@ -87,12 +88,14 @@ test("proxies redemption code views and game filters", async (context) => {
   const targets = [];
   globalThis.fetch = async (input) => { targets.push(String(input)); return Response.json([]); };
   context.after(() => { globalThis.fetch = originalFetch; });
-  await worker.fetch(new Request("https://example.test/remote-api/redemption-codes?gameId=genshin"), {});
-  await worker.fetch(new Request("https://example.test/remote-api/redemption-codes/expiring-today?gameId=monster"), {});
+  const allResponse = await worker.fetch(new Request("https://example.test/remote-api/redemption-codes?gameId=genshin"), {});
+  const expiringResponse = await worker.fetch(new Request("https://example.test/remote-api/redemption-codes/expiring-today?gameId=monster"), {});
   assert.deepEqual(targets, [
     "https://subculture-schdule-api.vercel.app/api/v1/redemption-codes?gameId=genshin",
     "https://subculture-schdule-api.vercel.app/api/v1/redemption-codes/expiring-today?gameId=monster",
   ]);
+  assert.equal(allResponse.headers.get("cache-control"), "no-store");
+  assert.equal(expiringResponse.headers.get("cache-control"), "no-store");
 });
 
 test("emits the files required by Sites packaging", async () => {
