@@ -18,7 +18,7 @@ GameTime is a Korean-first responsive web, Electron desktop, Android, and iOS ca
 - 원신 (`genshin`)
 - 이환 (`nte`)
 
-Its core user flow is to scan ended, active, and upcoming schedules, subscribe to games, open a shared in-app event detail modal, and manage desktop reminders. On initial entry the UI shows only schedules whose KST start date is today or later; `전체보기` reveals the full history. An exact-date query remains authoritative even for a past date.
+Its core user flow is to scan ended, active, and upcoming schedules, subscribe to games, open a shared in-app event detail modal, and manage desktop reminders. On initial entry the UI shows schedules starting within the seven KST calendar days ending today; `전체보기` reveals the full history. An exact-date query uses overlap-aware matching even for a past date.
 
 ## Technology and runtime matrix
 
@@ -42,8 +42,8 @@ The client is split into three layers. `src/core/` contains platform-neutral sch
 
 Browser loading order:
 
-1. Request `/remote-api/events`, optionally with `?date=YYYY-MM-DD`, and `/remote-api/collection-status`.
-2. In development, Vite rewrites these requests to `https://subculture-schdule-api.vercel.app/api/v1/*`.
+1. Request `/remote-api/games`, then independently exhaust `/remote-api/events?gameId={id}` for every enabled game and request `/remote-api/collection-status`.
+2. In development, Vite rewrites events to `/api/v2/events` and the catalog and collection status to `/api/v1/*`.
 3. In hosted Sites builds, `worker/index.js` proxies the same endpoints.
 4. If the remote request fails, read bundled `/api/events.json` and `/api/collection-status.json`.
 5. When a date is selected, apply overlap filtering to bundled data only. Treat a successful remote response as authoritative.
@@ -54,7 +54,7 @@ The client refreshes on initial load, date changes, manual refresh, window visib
 
 Capacitor packages the same `dist/client` output in native Android and iOS shells. Mobile code must call operating-system capabilities through `src/platform/`; React components must not import native APIs directly.
 
-- Schedule access uses native HTTP against the canonical API, then a per-query Preferences cache, then bundled JSON.
+- Schedule access discovers `/api/v1/games`, exhausts each `/api/v2/events` cursor through native HTTP, then uses Preferences cache and bundled JSON fallbacks.
 - Subscriptions and reminder selections use Capacitor Preferences.
 - Official links open through the Capacitor Browser plugin.
 - Selected future events are registered with the operating system as local notifications 60 minutes before their verified start.
@@ -72,7 +72,7 @@ The renderer has `contextIsolation: true` and `nodeIntegration: false`. Keep pri
 - `fetchRedemptionCodes(view, gameId)`
 - `onRefreshSchedules(callback)`
 
-Electron retrieves schedules in the main process from the remote API. It writes the last valid response to the Electron user-data directory as `schedule-cache-all.json` or `schedule-cache-YYYY-MM-DD.json`. Resolution order is remote → matching cache → bundled JSON. Do not move remote schedule access into the renderer.
+Electron retrieves the game catalog and v2 schedules in the main process. It caches the catalog and each complete successful game traversal independently in the Electron user-data directory. Resolution order per game is remote → matching cache → bundled JSON. Do not move remote schedule access into the renderer.
 
 Electron also retrieves redemption codes in the main process and caches successful responses per view and game filter. The client uses `GET /api/v1/redemption-codes` for the full list and `GET /api/v1/redemption-codes/expiring-today` for codes whose expiry date is today in KST; both accept the optional `gameId` filter. Browser development uses the existing `/remote-api` proxy and Capacitor uses native HTTP with Preferences cache.
 
@@ -153,7 +153,7 @@ The scheduled GitHub Action runs daily at `00:10 KST` from `develop`, tests the 
 - The redemption-code surface has separate full-list and KST-today-expiry tabs, game filtering, text search, code copy, and official redemption/source actions.
 - Game subscription and reminder selections persist through the platform storage adapter (`localStorage` on web/Electron and Preferences on mobile).
 - Exact-date filtering applies to both timeline and calendar and refetches the runtime API.
-- Default visibility includes only schedules whose KST start date is today or later; `전체보기` includes the full past and future history.
+- Default visibility includes schedules whose KST start date is today or one of the previous six days; `전체보기` includes the full past and future history.
 - Banner events without a verified `startsAt` remain available in a dedicated, default-collapsed `시간 미정` timeline group regardless of exact-date filtering. Activating its header reveals the rows. Date-filtered refreshes merge those records from the unfiltered endpoint; other undated event types stay hidden and undated banners are not placed in calendar date cells.
 - Keep the selected Timeline Command Center visual direction in `design-reference/selected-option-1.png` unless a newer approved reference replaces it.
 
@@ -222,7 +222,7 @@ Run build before `test:sites`; its artifact test expects the `dist` files to exi
 - `main` is currently kept at the same commit as `develop`, but deployment must not depend on it.
 - Vercel project: `yeon-cheols-projects/subculture-game-cals`.
 - Production URL: `https://subculture-game-cals.vercel.app`.
-- Remote schedule API: `https://subculture-schdule-api.vercel.app/api/v1`.
+- Remote schedule APIs: discovery and status under `/api/v1`, game-scoped cursor events under `/api/v2`.
 
 The spelling `schdule` in the deployed API hostname is intentional and must not be corrected locally without migrating the external service and every consumer together.
 

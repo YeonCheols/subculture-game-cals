@@ -71,16 +71,26 @@ test("maps the event API to the generated JSON asset", async () => {
   assert.deepEqual(calls, ["/api/events.json"]);
 });
 
-test("proxies dated remote event queries without losing the date", async (context) => {
+test("proxies v2 game cursor queries without changing opaque values", async (context) => {
   const originalFetch = globalThis.fetch;
   let target;
-  globalThis.fetch = async (input) => { target = String(input); return Response.json([{ id: "remote-event" }]); };
+  globalThis.fetch = async (input) => { target = String(input); return Response.json({ items: [{ id: "remote-event" }], nextCursor: null, total: 1 }); };
   context.after(() => { globalThis.fetch = originalFetch; });
-  const response = await worker.fetch(new Request("https://example.test/remote-api/events?date=2026-08-07"), {});
+  const response = await worker.fetch(new Request("https://example.test/remote-api/events?gameId=genshin&cursor=opaque%2Bvalue"), {});
   assert.equal(response.status, 200);
-  assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v1/events?date=2026-08-07");
+  assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v2/events?gameId=genshin&cursor=opaque%2Bvalue");
   assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await response.json(), [{ id: "remote-event" }]);
+  assert.deepEqual(await response.json(), { items: [{ id: "remote-event" }], nextCursor: null, total: 1 });
+});
+
+test("proxies game discovery through the v1 catalog endpoint", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let target;
+  globalThis.fetch = async (input) => { target = String(input); return Response.json({ items: [], updatedAt: "2026-08-21T09:00:00+09:00" }); };
+  context.after(() => { globalThis.fetch = originalFetch; });
+  const response = await worker.fetch(new Request("https://example.test/remote-api/games"), {});
+  assert.equal(response.status, 200);
+  assert.equal(target, "https://subculture-schdule-api.vercel.app/api/v1/games");
 });
 
 test("proxies redemption code views and game filters", async (context) => {

@@ -16,6 +16,11 @@ export default defineConfig({
       clientFiles: ["./src/main.jsx"],
     },
     proxy: {
+      "/remote-api/events": {
+        target: "https://subculture-schdule-api.vercel.app",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/remote-api\/events/, "/api/v2/events"),
+      },
       "/remote-api": {
         target: "https://subculture-schdule-api.vercel.app",
         changeOrigin: true,

@@ -1,9 +1,10 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "GET" && ["/remote-api/events", "/remote-api/collection-status", "/remote-api/redemption-codes", "/remote-api/redemption-codes/expiring-today"].includes(url.pathname)) {
+    if (request.method === "GET" && ["/remote-api/events", "/remote-api/games", "/remote-api/collection-status", "/remote-api/redemption-codes", "/remote-api/redemption-codes/expiring-today"].includes(url.pathname)) {
       const endpoint = url.pathname.replace("/remote-api/", "");
-      const response = await fetch(`https://subculture-schdule-api.vercel.app/api/v1/${endpoint}${url.search}`, { cache: "no-store", headers: { accept: "application/json" } });
+      const apiVersion = endpoint === "events" ? "v2" : "v1";
+      const response = await fetch(`https://subculture-schdule-api.vercel.app/api/${apiVersion}/${endpoint}${url.search}`, { cache: "no-store", headers: { accept: "application/json" } });
       return new Response(response.body, { status: response.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
     }
     if (request.method === "GET" && url.pathname === "/api/events") {

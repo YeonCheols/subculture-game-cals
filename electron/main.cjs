@@ -2,7 +2,8 @@ const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, shell, nativeImag
 const { readFile, writeFile } = require("node:fs/promises");
 const path = require("node:path");
 
-const API_BASE = "https://subculture-schdule-api.vercel.app/api/v1";
+const API_ORIGIN = "https://subculture-schdule-api.vercel.app";
+const API_BASE = `${API_ORIGIN}/api/v1`;
 let mainWindow; let tray;
 
 function isValidEvents(events) {
@@ -25,37 +26,97 @@ async function fetchJson(url) {
   return response.json();
 }
 
+function isValidEventsPage(page) {
+  return page && isValidEvents(page.items) && (page.nextCursor === null || typeof page.nextCursor === "string") && typeof page.total === "number";
+}
+
+function isValidGameCatalog(catalog) {
+  return catalog && Array.isArray(catalog.items) && typeof catalog.updatedAt === "string" && catalog.items.every((game) => game && typeof game.id === "string" && typeof game.name === "string" && typeof game.shortName === "string" && typeof game.enabled === "boolean" && typeof game.sortOrder === "number");
+}
+
+async function bundledGameCatalog() {
+  return readFile(path.join(__dirname, "../dist/client/api/games.json"), "utf8").then(JSON.parse);
+}
+
+async function gameCatalog() {
+  const cachePath = path.join(app.getPath("userData"), "game-catalog-cache-v1.json");
+  try {
+    const catalog = await fetchJson(`${API_ORIGIN}/api/v1/games`);
+    if (!isValidGameCatalog(catalog)) throw new Error("Invalid game catalog response");
+    await writeFile(cachePath, JSON.stringify(catalog));
+    return { catalog, source: "remote" };
+  } catch (remoteError) {
+    try {
+      const cached = JSON.parse(await readFile(cachePath, "utf8"));
+      if (isValidGameCatalog(cached)) return { catalog: cached, source: "cache", warning: remoteError.message };
+    } catch {}
+    return { catalog: await bundledGameCatalog(), source: "bundled", warning: remoteError.message };
+  }
+}
+
+async function fetchGameEvents(gameId) {
+  const items = [];
+  let cursor = null;
+  do {
+    const url = new URL("/api/v2/events", API_ORIGIN);
+    url.searchParams.set("gameId", gameId);
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const page = await fetchJson(url.toString());
+    if (!isValidEventsPage(page) || page.items.some((event) => event.gameId !== gameId)) throw new Error(`Invalid v2 events page for ${gameId}`);
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
+}
+
+function filterEventsByDate(events, date) {
+  if (!date) return events;
+  let rangeStart; let rangeEnd;
+  rangeStart = Date.parse(`${date}T00:00:00+09:00`); rangeEnd = Date.parse(`${date}T23:59:59.999+09:00`);
+  return events.filter((event) => {
+    const start = Date.parse(event.startsAt); const end = event.endsAt ? Date.parse(event.endsAt) : start;
+    return !Number.isNaN(start) && start <= rangeEnd && end >= rangeStart;
+  });
+}
+
 async function bundledScheduleData(date) {
   const apiDirectory = path.join(__dirname, "../dist/client/api");
   const [events, status] = await Promise.all([
     readFile(path.join(apiDirectory, "events.json"), "utf8").then(JSON.parse),
     readFile(path.join(apiDirectory, "collection-status.json"), "utf8").then(JSON.parse),
   ]);
-  const filteredEvents = date ? events.filter((event) => {
-    const start = Date.parse(event.startsAt); const end = event.endsAt ? Date.parse(event.endsAt) : start;
-    const dayStart = Date.parse(`${date}T00:00:00+09:00`); const dayEnd = Date.parse(`${date}T23:59:59.999+09:00`);
-    return !Number.isNaN(start) && start <= dayEnd && end >= dayStart;
-  }) : events;
+  const filteredEvents = date === null ? events : filterEventsByDate(events, date);
   return { events: filteredEvents, status, source: "bundled" };
 }
 
 async function scheduleData(date = "") {
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
-  const cachePath = path.join(app.getPath("userData"), `schedule-cache-${safeDate || "all"}.json`);
-  try {
-    const eventUrl = `${API_BASE}/events${safeDate ? `?date=${encodeURIComponent(safeDate)}` : ""}`;
-    const [events, status] = await Promise.all([fetchJson(eventUrl), fetchJson(`${API_BASE}/collection-status`)]);
-    if (!isValidEvents(events) || !status || typeof status.retrievedAt !== "string") throw new Error("Invalid schedule API response");
-    const payload = { events, status, source: "remote", cachedAt: new Date().toISOString() };
-    await writeFile(cachePath, JSON.stringify(payload));
-    return payload;
-  } catch (remoteError) {
+  const cacheDirectory = app.getPath("userData");
+  const bundled = await bundledScheduleData(null);
+  const warnings = [];
+  const catalogResult = await gameCatalog();
+  if (catalogResult.warning) warnings.push(`games: ${catalogResult.warning}`);
+  const enabledGames = catalogResult.catalog.items.filter((game) => game.enabled).sort((a, b) => a.sortOrder - b.sortOrder);
+  const gameResults = await Promise.all(enabledGames.map(async ({ id: gameId }) => {
+    const cachePath = path.join(cacheDirectory, `schedule-cache-v2-${gameId}.json`);
     try {
-      const cached = JSON.parse(await readFile(cachePath, "utf8"));
-      if (isValidEvents(cached.events)) return { ...cached, source: "cache", warning: remoteError.message };
-    } catch {}
-    return { ...(await bundledScheduleData(safeDate)), warning: remoteError.message };
-  }
+      const events = await fetchGameEvents(gameId);
+      await writeFile(cachePath, JSON.stringify({ events, cachedAt: new Date().toISOString() }));
+      return { events, source: "remote" };
+    } catch (remoteError) {
+      warnings.push(`${gameId}: ${remoteError.message}`);
+      try {
+        const cached = JSON.parse(await readFile(cachePath, "utf8"));
+        if (isValidEvents(cached.events)) return { events: cached.events, source: "cache" };
+      } catch {}
+      return { events: bundled.events.filter((event) => event.gameId === gameId), source: "bundled" };
+    }
+  }));
+  let status = bundled.status;
+  try { status = await fetchJson(`${API_ORIGIN}/api/v1/collection-status`); } catch (error) { warnings.push(`collection-status: ${error.message}`); }
+  const events = filterEventsByDate(gameResults.flatMap((result) => result.events), safeDate);
+  const source = gameResults.every((result) => result.source === "remote") ? "remote" : "mixed";
+  return { events, games: enabledGames, status, source, cachedAt: new Date().toISOString(), ...(warnings.length ? { warning: warnings.join("; ") } : {}) };
 }
 
 async function redemptionCodeData(view = "all", gameId = "") {
