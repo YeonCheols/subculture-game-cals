@@ -39,10 +39,10 @@ async function mobileRedemptionCodes(view, gameId) {
 }
 
 async function browserRedemptionCodes(view, gameId) {
-  let response = await fetch(`/remote-api${endpointFor(view, gameId)}`, { cache: "no-store" });
+  let response = await fetch(`/remote-api${endpointFor(view, gameId)}`);
   let warning = "";
   if (!response.ok && view === "expiring-today") {
-    response = await fetch(`/remote-api${endpointFor("all", gameId)}`, { cache: "no-store" });
+    response = await fetch(`/remote-api${endpointFor("all", gameId)}`);
     warning = "오늘 만료 API가 아직 제공되지 않아 전체 목록에서 KST 기준으로 계산했습니다.";
   }
   if (!response.ok) throw new Error(`redemption codes ${response.status}`);

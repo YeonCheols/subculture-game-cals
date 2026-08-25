@@ -13,7 +13,7 @@ function enabledGames(catalog) {
 function filterByDate(events, date) { return date ? events.filter((event) => overlapsDate(event, date)) : events; }
 
 async function bundledScheduleData(date, warning) {
-  const [eventsResponse, gamesResponse, statusResponse] = await Promise.all([fetch(bundledUrl("events"), { cache: "no-store" }), fetch(bundledUrl("games"), { cache: "no-store" }), fetch(bundledUrl("collection-status"), { cache: "no-store" })]);
+  const [eventsResponse, gamesResponse, statusResponse] = await Promise.all([fetch(bundledUrl("events")), fetch(bundledUrl("games")), fetch(bundledUrl("collection-status"))]);
   if (!eventsResponse.ok || !gamesResponse.ok) throw new Error(warning || "bundled schedule data is unavailable");
   const [events, catalog] = await Promise.all([eventsResponse.json(), gamesResponse.json()]);
   return { events: filterByDate(events, date), games: enabledGames(catalog), status: statusResponse.ok ? await statusResponse.json() : null, source: "bundled", ...(warning ? { warning } : {}) };
@@ -54,11 +54,11 @@ async function mobileScheduleData(date) {
 
 async function browserScheduleData(date) {
   try {
-    const catalogResponse = await fetch("/remote-api/games", { cache: "no-store" });
+    const catalogResponse = await fetch("/remote-api/games");
     if (!catalogResponse.ok) throw new Error(`games ${catalogResponse.status}`);
     const games = enabledGames(await catalogResponse.json());
-    const events = await fetchAllGameEvents(games, async (gameId, cursor) => { const query = new URLSearchParams({ gameId }); if (cursor) query.set("cursor", cursor); const response = await fetch(`/remote-api/events?${query}`, { cache: "no-store" }); if (!response.ok) throw new Error(`${gameId} events ${response.status}`); return response.json(); });
-    const statusResponse = await fetch("/remote-api/collection-status", { cache: "no-store" });
+    const events = await fetchAllGameEvents(games, async (gameId, cursor) => { const query = new URLSearchParams({ gameId }); if (cursor) query.set("cursor", cursor); const response = await fetch(`/remote-api/events?${query}`); if (!response.ok) throw new Error(`${gameId} events ${response.status}`); return response.json(); });
+    const statusResponse = await fetch("/remote-api/collection-status");
     return { events: filterByDate(events, date), games, status: statusResponse.ok ? await statusResponse.json() : null, source: "remote" };
   } catch (error) { return bundledScheduleData(date, error.message); }
 }
