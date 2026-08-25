@@ -15,6 +15,7 @@ import "./custom-select.css";
 import "./game-icons.css";
 import "./date-filter.css";
 import "./redemption-codes.css";
+import "./bar-calendar.css";
 
 const typeLabels = ["전체", "업데이트", "공식방송", "이벤트", "픽업"];
 const statusLabels = ["전체 상태", "진행중", "예정", "종료"];
@@ -93,15 +94,25 @@ function Timeline({ groups, notifications, toggleNotification, onOpen }) {
 function MiniCalendar({ groups, onOpen, focusDate }) {
   const now = new Date();
   const [cursor, setCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set());
   useEffect(() => { if (focusDate) { const [year, month] = focusDate.split("-").map(Number); setCursor(new Date(year, month - 1, 1)); } }, [focusDate]);
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
   const year = cursor.getFullYear(); const month = cursor.getMonth();
   const firstDay = new Date(year, month, 1).getDay(); const dayCount = new Date(year, month + 1, 0).getDate();
   const cells = Array.from({ length: 42 }, (_, index) => { const day = index - firstDay + 1; return day > 0 && day <= dayCount ? day : null; });
-  const byDate = new Map(groups.map((group) => [group.date, group.items]));
   const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(now);
-  const keyFor = (day) => `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  return <section className="calendar-view"><header><button onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="이전 달">‹</button><h2>{year}년 {month + 1}월</h2><button onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="다음 달">›</button></header><div className="calendar-grid calendar-grid--weekdays">{weekdays.map((day) => <b key={day}>{day}</b>)}</div><div className="calendar-grid calendar-grid--events">{cells.map((day, index) => { const dateKey = day ? keyFor(day) : null; const items = dateKey ? byDate.get(dateKey) || [] : []; return <div key={index} className={`calendar-day ${dateKey === todayKey ? "is-today" : ""} ${items.length ? "has-event" : ""}`}><span>{day || ""}</span><div>{items.slice(0, 3).map((item) => { const game = games.find((entry) => entry.id === item.gameId); return <button key={item.id} onClick={() => onOpen(item)} style={{ "--game": game.color }} title={item.title}><i />{item.time} {item.title}</button>; })}{items.length > 3 && <small>+{items.length - 3}개</small>}</div></div>; })}</div></section>;
+  const monthStart = new Date(year, month, 1); const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+  const items = groups.flatMap((group) => group.items).filter((item) => item.startsAt && new Date(item.startsAt) <= monthEnd && new Date(item.endsAt || item.startsAt) >= monthStart).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const keyFor = (date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(date);
+  const weekStarts = Array.from({ length: 6 }, (_, index) => new Date(year, month, 1 - firstDay + index * 7));
+  const dayIndex = (date) => Math.round((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(year, month, 1 - firstDay)) / 86400000);
+  const segmentsForWeek = (weekStart) => {
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6); weekEnd.setHours(23, 59, 59, 999);
+    const segments = items.flatMap((item) => { const start = new Date(item.startsAt); const end = new Date(item.endsAt || item.startsAt); if (start > weekEnd || end < weekStart) return []; const startColumn = Math.max(0, Math.floor((start - weekStart) / 86400000)); const endColumn = Math.min(6, Math.floor((end - weekStart) / 86400000)); return [{ item, startColumn, endColumn }]; }).sort((a, b) => a.startColumn - b.startColumn || b.endColumn - a.endColumn);
+    const tracks = []; return segments.map((segment) => { let track = tracks.findIndex((endColumn) => endColumn < segment.startColumn); if (track < 0) { track = tracks.length; tracks.push(segment.endColumn); } else tracks[track] = segment.endColumn; return { ...segment, track }; });
+  };
+  const toggleWeek = (weekKey) => setExpandedWeeks((current) => { const next = new Set(current); if (next.has(weekKey)) next.delete(weekKey); else next.add(weekKey); return next; });
+  return <section className="calendar-view calendar-view--bars"><header><button onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="이전 달"><IconChevronLeft size={18} /></button><div><span>BAR SCHEDULE</span><h2>{year}년 {month + 1}월</h2></div><button onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="다음 달"><IconChevronRight size={18} /></button></header><div className="calendar-grid calendar-grid--weekdays">{weekdays.map((day) => <b key={day}>{day}</b>)}</div><div className="bar-calendar-weeks">{weekStarts.map((weekStart, weekIndex) => { const weekKey = weekStart.toISOString(); const segments = segmentsForWeek(weekStart); const isExpanded = expandedWeeks.has(weekKey); const maxLanes = isExpanded ? Number.POSITIVE_INFINITY : 4; const visibleSegments = segments.filter((segment) => segment.track < maxLanes); const hiddenCount = segments.length - visibleSegments.length; const lanes = Math.max(3, ...visibleSegments.map((segment) => segment.track + 1)); const hasToggle = hiddenCount > 0 || isExpanded; return <section className="bar-calendar-week" style={{ "--lanes": lanes + (hasToggle ? 1 : 0) }} key={weekKey}><div className="bar-calendar-week__days">{Array.from({ length: 7 }, (_, index) => { const date = new Date(weekStart); date.setDate(date.getDate() + index); const isCurrentMonth = date.getMonth() === month; const dateKey = keyFor(date); return <div className={`calendar-day ${isCurrentMonth ? "" : "is-outside"} ${dateKey === todayKey ? "is-today" : ""}`} key={dateKey}><span>{date.getDate()}</span></div>; })}</div><div className="bar-calendar-week__lanes">{visibleSegments.map(({ item, startColumn, endColumn, track }) => { const game = games.find((entry) => entry.id === item.gameId); return <button key={`${item.id}-${weekIndex}`} className={`calendar-event-bar type-badge--${item.typeKey}`} onClick={() => onOpen(item)} title={`${item.title} · ${item.time}`} style={{ "--game": game.color, gridColumn: `${startColumn + 1} / ${endColumn + 2}`, gridRow: track + 1 }}><GameMark game={game} size="sm" /><span>{item.title}</span></button>; })}{hasToggle && <button type="button" className="calendar-bar-overflow" onClick={() => toggleWeek(weekKey)} aria-expanded={isExpanded} style={{ gridColumn: "1 / 8", gridRow: lanes + 1 }}>{isExpanded ? "일정 접기" : `+ ${hiddenCount}개 일정 더보기`}</button>}</div></section>; })}</div></section>;
 }
 
 function BannerTargets({ icon, title, targets }) {

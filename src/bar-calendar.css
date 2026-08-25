@@ -1,0 +1,18 @@
+.calendar-bar-overflow {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  color: #65bff0;
+  background: rgba(39, 139, 198, 0.1);
+  border: 1px dashed rgba(63, 166, 225, 0.35);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.calendar-bar-overflow:hover {
+  color: #d5f1ff;
+  background: rgba(39, 139, 198, 0.22);
+}
