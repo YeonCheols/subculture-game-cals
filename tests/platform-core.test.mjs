@@ -21,12 +21,12 @@ test("native reminder time is one hour before the event", () => {
   assert.equal(reminderAt({ startsAt: "2026-08-09T12:00:00+09:00" }).toISOString(), "2026-08-09T02:00:00.000Z");
 });
 
-test("display groups remain sorted by KST start date", () => {
+test("display groups remain sorted by KST start date, newest first", () => {
   const events = [
     { id: "later", gameId: "genshin", type: "event", status: "upcoming", startsAt: "2026-08-10T10:00:00+09:00" },
     { id: "earlier", gameId: "genshin", type: "event", status: "upcoming", startsAt: "2026-08-09T10:00:00+09:00" },
   ];
-  assert.deepEqual(toScheduleGroups(events, games).map(({ date }) => date), ["2026-08-09", "2026-08-10"]);
+  assert.deepEqual(toScheduleGroups(events, games).map(({ date }) => date), ["2026-08-10", "2026-08-09"]);
 });
 
 test("undated pickups remain visible in a dedicated group", () => {

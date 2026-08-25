@@ -38,5 +38,5 @@ export function toScheduleGroups(events, games) {
     if (!groups.has(date)) groups.set(date, isUndatedPickup ? { date, label: "시간 미정", dateLabel: "시작 일정 확인 중", tag: "상시 표시", items: [] } : { date, label: date === today ? "오늘" : formatter.format(new Date(instant)).split(" ").at(-1), dateLabel: formatter.format(new Date(instant)), ...(date === today ? { tag: "오늘" } : {}), items: [] });
     groups.get(date).items.push({ ...event, time: isUndatedPickup ? "미정" : timeFormatter.format(new Date(instant)), type, typeKey, status, statusKey, source: "공식 공지", reminder: isUndatedPickup ? "시작 시간 확인 중" : `${DEFAULT_REMINDER_OFFSET_MINUTES}분 전` });
   }
-  return [...groups.values()].sort((a, b) => a.date === UNDATED_PICKUP_GROUP ? 1 : b.date === UNDATED_PICKUP_GROUP ? -1 : a.date.localeCompare(b.date));
+  return [...groups.values()].sort((a, b) => a.date === UNDATED_PICKUP_GROUP ? 1 : b.date === UNDATED_PICKUP_GROUP ? -1 : b.date.localeCompare(a.date));
 }
