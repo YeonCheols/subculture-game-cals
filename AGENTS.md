@@ -13,6 +13,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 ## Confirmed product direction
 
 - Selected visual: `design-reference/selected-option-1.png` (first displayed ideation result, Timeline Command Center).
+- Selected mobile visual: Product Design ideation option 2 (Next Schedule Command Deck). Preserve the existing desktop Timeline Command Center for PC/Electron; mobile web and Capacitor use a dedicated next-event, week-strip, and upcoming-agenda layout.
 - Primary games: 몬길: STAR DIVE, 명조: 워더링 웨이브, 원신, 이환 (`nte`).
 - Primary surfaces: responsive web UI, Electron desktop shell, and Capacitor-based Android/iOS apps.
 - Core task: scan ended/active/upcoming schedules, subscribe to games, and receive desktop reminders.
