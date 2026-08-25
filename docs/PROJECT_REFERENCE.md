@@ -48,7 +48,7 @@ Browser loading order:
 4. If the remote request fails, read bundled `/api/events.json` and `/api/collection-status.json`.
 5. When a date is selected, apply overlap filtering to bundled data only. Treat a successful remote response as authoritative.
 
-The client refreshes on initial load, date changes, manual refresh, window visibility, Electron refresh IPC, and every five minutes.
+The client refreshes on initial load, date changes, manual refresh, window visibility, and Electron refresh IPC. It does not poll on a timer.
 
 ### Mobile boundary
 
